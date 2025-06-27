@@ -19,6 +19,7 @@ find_package(MiniSEED)
 find_package(Catch2 3)
 find_package(Threads REQUIRED)
 
+set(BINARIES "")
 set(CLIENT_LIBRARY_SRC 
     messageFormats/message.cpp
     messageFormats/broadcasts/dataPacket.cpp) 
@@ -55,6 +56,7 @@ target_include_directories(dataPacketBroadcastProxy
 target_link_libraries(dataPacketBroadcastProxy
                       PRIVATE spdlog::spdlog Boost::program_options
                               cppzmq-static Threads::Threads)
+list(APPEND BINARIES dataPacketBroadcastProxy)
 
 if (${SEEDLink_FOUND} AND ${MiniSEED_FOUND})
    add_executable(seedLinkDataPacketBroadcastPublisher
@@ -76,6 +78,7 @@ if (${SEEDLink_FOUND} AND ${MiniSEED_FOUND})
                          PRIVATE us8client spdlog::spdlog Boost::program_options
                                  cppzmq-static ${SEEDLINK_LIBRARY} ${MINISEED_LIBRARY}
                                  Threads::Threads)
+   list(APPEND BINARIES seedLinkDataPacketBroadcastPublisher)
 endif()
 
 
@@ -93,6 +96,28 @@ write_basic_package_version_file(
     VERSION "${version}"
     COMPATIBILITY AnyNewerVersion
 )
+
+install(TARGETS us8client
+        EXPORT ${PROJECT_NAME}-targets
+        FILE_SET HEADERS
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        COMPONENT libraries)
+install(TARGETS ${BINARIES}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        COMPONENT applications)
+#install(FILE_SET HEADERS
+#        DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/uWaveServer
+#        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+export(EXPORT ${PROJECT_NAME}-targets
+       FILE "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake")
+install(EXPORT ${PROJECT_NAME}-targets
+        FILE ${PROJECT_NAME}Targets.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
+install(FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
+
 
 
 ##########################################################################################

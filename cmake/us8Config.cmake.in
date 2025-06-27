@@ -10,7 +10,7 @@
 # This module sets the following variables in your project::
 #
 #   us8_FOUND - true if uWaveServer library was found on the system
-#   us8_INCLUDE_DIR - the directory containing u8s headers
+#   us8_INCLUDE_DIR - the directory containing us8 headers
 #   us8_LIBRARY - 
 #   us8_STATIC_LIBRARY
 
