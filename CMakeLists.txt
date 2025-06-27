@@ -56,8 +56,7 @@ target_include_directories(dataPacketBroadcastProxy
                            PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
 target_link_libraries(dataPacketBroadcastProxy
                       PRIVATE spdlog::spdlog Boost::program_options
-                              cppzmq-static Threads::Threads
-                              -static-libstdc++)
+                              cppzmq-static Threads::Threads)
 list(APPEND BINARIES dataPacketBroadcastProxy)
 
 if (${SEEDLink_FOUND} AND ${MiniSEED_FOUND})
@@ -79,8 +78,7 @@ if (${SEEDLink_FOUND} AND ${MiniSEED_FOUND})
    target_link_libraries(seedLinkDataPacketBroadcastPublisher
                          PRIVATE us8client spdlog::spdlog Boost::program_options
                                  cppzmq-static ${SEEDLINK_LIBRARY} ${MINISEED_LIBRARY}
-                                 Threads::Threads
-                                 -static-libstdc++)
+                                 Threads::Threads)
    list(APPEND BINARIES seedLinkDataPacketBroadcastPublisher)
 endif()
 
