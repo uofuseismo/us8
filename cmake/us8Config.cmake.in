@@ -1,0 +1,35 @@
+# Time cmake module
+#
+# The following import targets are created
+#
+# ::
+#
+#   libus8-static
+#   libus8
+#
+# This module sets the following variables in your project::
+#
+#   us8_FOUND - true if uWaveServer library was found on the system
+#   us8_INCLUDE_DIR - the directory containing u8s headers
+#   us8_LIBRARY - 
+#   us8_STATIC_LIBRARY
+
+@PACKAGE_INIT@
+
+if(NOT TARGET us8 AND NOT TARGET us8-static)
+  include("${CMAKE_CURRENT_LIST_DIR}/@PROJECT_NAME@Targets.cmake")
+
+  if (TARGET us8)
+    get_target_property(@PROJECT_NAME@_INCLUDE_DIR us8 INTERFACE_INCLUDE_DIRECTORIES)
+  else ()
+    get_target_property(@PROJECT_NAME@_INCLUDE_DIR us8-static INTERFACE_INCLUDE_DIRECTORIES)
+  endif()
+
+  if (TARGET us8)
+    get_target_property(@PROJECT_NAME@_LIBRARY us8 LOCATION)
+  endif()
+  if (TARGET us8-static)
+    get_target_property(@PROJECT_NAME@_STATIC_LIBRARY us8-static LOCATION)
+  endif()
+endif()
+

@@ -1,0 +1,142 @@
+# Purpose: Creates the base image for building the uWaveServer C++ software - 
+#          i.e., - all the prerequisites so you are ready to build.
+# Usage: podman build -t us8base:latest -f Dockerfile.base.u24
+
+FROM ubuntu:24.04 AS us8builder
+
+MAINTAINER Ben Baker <ben.baker@utah.edu>
+USER root
+ENV PATH="$PATH:/usr/local/bin"
+ENV BOOST_ROOT="/usr/local"
+ENV CPLUS_INCLUDE_PATH="/usr/local/include:${CPLUS_INCLUDE_PATH}"
+ENV LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib"
+
+RUN apt-get update &&\
+    apt-get upgrade -y &&\
+    apt-get autoremove -y &&\
+    apt-get autoclean -y &&\
+    apt-get install -y wget &&\
+    apt-get install -y git &&\
+    apt-get install -y clang &&\
+    apt-get install -y curl &&\
+    apt-get install -y pkg-config &&\
+    apt-get install -y autoconf &&\
+    apt-get install -y make &&\
+    apt-get install -y cmake &&\
+    apt-get install -y libssl-dev &&\
+    apt-get install -y openssl
+
+# Usually good to have zlib and I need boost but not everything in dev-all
+RUN mkdir -p /home/ubuntu &&\
+    mkdir -p /usr/local/include &&\
+    mkdir -p /usr/local/lib &&\
+    cd /home/ubuntu &&\
+    wget -q https://zlib.net/zlib-1.3.1.tar.gz &&\
+    tar -xf zlib-1.3.1.tar.gz &&\
+    rm zlib-1.3.1.tar.gz &&\
+    cd zlib-1.3.1  &&\
+    CC=clang ./configure --prefix=/usr/local &&\
+    make &&\
+    make install &&\
+    cd /home/ubuntu &&\
+    rm -r zlib-1.3.1 &&\
+    wget -q https://github.com/catchorg/Catch2/archive/refs/tags/v3.8.1.tar.gz &&\
+    tar -xf v3.8.1.tar.gz &&\
+    rm v3.8.1.tar.gz &&\
+    cd Catch2-3.8.1/ &&\
+    mkdir build &&\
+    cd build &&\
+    cmake .. -DCMAKE_CXX_COMPILER=clang++ &&\
+    make &&\
+    make install &&\
+    cd /home/ubuntu &&\
+    rm -rf Catch2-3.8.1/ &&\
+    cd /home/ubuntu &&\
+    wget -q https://archives.boost.io/release/1.88.0/source/boost_1_88_0.tar.gz &&\
+    tar -xf boost_1_88_0.tar.gz &&\
+    rm boost_1_88_0.tar.gz &&\
+    cd boost_1_88_0 &&\
+    ./bootstrap.sh --with-toolset=clang &&\
+    ./b2 --with-headers --with-asio --with-beast --with-url --with-program_options --with-date_time &&\
+    ./b2 install --prefix=/usr/local --with-headers --with-asio --with-beast --with-url --with-program_options --with-date_time &&\
+    cd /home/ubuntu &&\
+    rm -rf boost_1_88_0 &&\
+    wget -q https://github.com/gabime/spdlog/archive/refs/tags/v1.15.3.tar.gz &&\
+    tar -xf v1.15.3.tar.gz &&\
+    rm v1.15.3.tar.gz &&\
+    cd spdlog-1.15.3 &&\
+    mkdir build_static &&\
+    mkdir build_shared &&\
+    cd build_static &&\
+    cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release -DSPDLOG_BUILD_SHARED=OFF &&\
+    make &&\
+    make install &&\
+    cd /home/ubuntu &&\
+    rm -rf spdlog-1.15.3 &&\
+    wget -q https://github.com/nlohmann/json/archive/refs/tags/v3.12.0.tar.gz &&\
+    tar -xf v3.12.0.tar.gz &&\
+    rm v3.12.0.tar.gz &&\
+    cd json-3.12.0/ &&\
+    mkdir build &&\
+    cd build &&\
+    cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DCMAKE_BUILD_TYPE=Release -DJSON_BuildTests=OFF &&\
+    make &&\
+    make install &&\
+    cd /home/ubuntu &&\
+    rm -r json-3.12.0 &&\
+    wget https://download.libsodium.org/libsodium/releases/libsodium-1.0.18.tar.gz &&\
+    tar -xf libsodium-1.0.18.tar.gz &&\
+    rm libsodium-1.0.18.tar.gz &&\
+    cd libsodium-1.0.18 &&\
+    CC=clang ./configure --prefix=/usr/local &&\
+    make &&\
+    make install &&\
+    cd /home/ubuntu &&\
+    rm -r libsodium-1.0.18 &&\
+    cd /home/ubuntu &&\
+    wget https://github.com/zeromq/libzmq/archive/refs/tags/v4.3.5.tar.gz &&\
+    tar -xf v4.3.5.tar.gz &&\
+    rm v4.3.5.tar.gz &&\ 
+    cd libzmq-4.3.5 &&\
+    mkdir build &&\
+    cd build &&\
+    cmake ../ -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DENABLE_DRAFTS=ON -DWITH_LIBSODIUM_STATIC=ON -DENABLE_CURVE=ON -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=OFF &&\
+    make &&\
+    make install &&\
+    cd /home/ubuntu/ &&\
+    rm -rf libzmq-4.3.5 &&\
+    cd /home/ubuntu &&\
+    wget https://github.com/zeromq/cppzmq/archive/refs/tags/v4.11.0.tar.gz &&\
+    tar -xf v4.11.0.tar.gz &&\
+    rm v4.11.0.tar.gz &&\
+    cd cppzmq-4.11.0/ &&\
+    mkdir build &&\
+    cd build &&\
+    cmake .. -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release -DCPPZMQ_BUILD_TESTS=OFF &&\
+    make &&\
+    make install &&\
+    cd /home/ubuntu &&\
+    rm -rf cppzmq-4.11.0
+
+# slink/mseed
+RUN cd /home/ubuntu &&\
+    wget -q https://github.com/EarthScope/libmseed/archive/refs/tags/v3.1.5.tar.gz &&\
+    tar -xf v3.1.5.tar.gz &&\
+    rm v3.1.5.tar.gz &&\
+    cd libmseed-3.1.5 &&\
+    CC=clang make static &&\
+    mv libmseed.a /usr/local/lib/ &&\
+    cp libmseed.h /usr/local/include/ &&\
+    cd /home/ubuntu &&\
+    rm -r libmseed-3.1.5 &&\
+    wget -q https://github.com/EarthScope/libslink/archive/refs/tags/v4.1.5.tar.gz &&\
+    tar -xf v4.1.5.tar.gz &&\
+    rm v4.1.5.tar.gz &&\
+    cd libslink-4.1.5 &&\
+    CC=clang make static &&\
+    mv libslink.a /usr/local/lib/ &&\
+    cp libslink.h /usr/local/include/ &&\
+    cd /home/ubuntu &&\
+    rm -r libslink-4.1.5 &&\
+    cd /home/ubuntu
+
