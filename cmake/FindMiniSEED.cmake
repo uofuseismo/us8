@@ -12,7 +12,7 @@ find_path(MINISEED_INCLUDE_DIR
                 $ENV{MINISEED_ROOT}/
                 /usr/local/include)
 # Find the library components
-if (NOT BUILD_SHARED_LIBS)
+if (BUILD_SHARED_LIBS)
    message("Looking for libmseed shared")
    find_library(MINISEED_LIBRARY
                 NAME libmseed.so

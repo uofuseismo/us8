@@ -19,9 +19,11 @@ find_package(MiniSEED)
 find_package(Catch2 3)
 find_package(Threads REQUIRED)
 
+set(CLIENT_LIBRARY_SRC 
+    messageFormats/message.cpp
+    messageFormats/broadcasts/dataPacket.cpp) 
 add_library(us8client
-            messageFormats/message.cpp
-            messageFormats/broadcasts/dataPacket.cpp)
+            ${CLIENT_LIBRARY_SRC})
 target_sources(us8client
                PUBLIC
                FILE_SET HEADERS
@@ -42,8 +44,7 @@ target_link_libraries(us8client
                       PRIVATE nlohmann_json::nlohmann_json spdlog::spdlog)
 
 add_executable(dataPacketBroadcastProxy 
-               broadcasts/dataPacket/proxy.cpp
-               broadcasts/dataPacket/client.cpp)
+               broadcasts/dataPacket/proxy.cpp)
 set_target_properties(dataPacketBroadcastProxy PROPERTIES
                       CXX_STANDARD 20
                       CXX_STANDARD_REQUIRED YES 
@@ -57,6 +58,7 @@ target_link_libraries(dataPacketBroadcastProxy
 
 if (${SEEDLink_FOUND} AND ${MiniSEED_FOUND})
    add_executable(seedLinkDataPacketBroadcastPublisher
+                  broadcasts/dataPacket/client.cpp
                   broadcasts/dataPacket/seedLink/publisher.cpp
                   broadcasts/dataPacket/seedLink/streamSelector.cpp
                   broadcasts/dataPacket/seedLink/clientOptions.cpp
@@ -65,13 +67,15 @@ if (${SEEDLink_FOUND} AND ${MiniSEED_FOUND})
                          CXX_STANDARD 20
                          CXX_STANDARD_REQUIRED YES 
                          CXX_EXTENSIONS NO) 
-   target_compile_definitions(seedLinkDataPacketBroadcastPublisher PRIVATE USE_MS_VERSION_315)
+   target_compile_definitions(seedLinkDataPacketBroadcastPublisher
+                              PRIVATE USE_MS_VERSION_315)
    target_include_directories(seedLinkDataPacketBroadcastPublisher
                               PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/lib:${MINISEED_INCLUDE_DIR}:${SEEDLINK_INCLUDE_DIR}> 
                               PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
    target_link_libraries(seedLinkDataPacketBroadcastPublisher
                          PRIVATE us8client spdlog::spdlog Boost::program_options
-                                 cppzmq-static ${SEEDLINK_LIBRARY} ${MINISEED_LIBRARY})
+                                 cppzmq-static ${SEEDLINK_LIBRARY} ${MINISEED_LIBRARY}
+                                 Threads::Threads)
 endif()
 
 

@@ -11,7 +11,7 @@ find_path(SEEDLINK_INCLUDE_DIR
                 /usr/local/include
           )
 # Find the library components
-if (NOT BUILD_SHARED_LIBS)
+if (BUILD_SHARED_LIBS)
    message("Looking for libslink shared")
    find_library(SEEDLINK_LIBRARY
                 NAMES libslink.so
