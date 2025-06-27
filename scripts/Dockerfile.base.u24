@@ -1,4 +1,4 @@
-# Purpose: Creates the base image for building the uWaveServer C++ software - 
+# Purpose: Creates the base image for building the us8 C++ software - 
 #          i.e., - all the prerequisites so you are ready to build.
 # Usage: podman build -t us8base:latest -f Dockerfile.base.u24
 

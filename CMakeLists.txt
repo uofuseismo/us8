@@ -8,6 +8,7 @@ include(FetchContent)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
+set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(Boost_USE_STATIC_LIBS ON)
 find_package(spdlog REQUIRED)
 find_package(nlohmann_json 3.2.0 REQUIRED)
@@ -55,7 +56,8 @@ target_include_directories(dataPacketBroadcastProxy
                            PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
 target_link_libraries(dataPacketBroadcastProxy
                       PRIVATE spdlog::spdlog Boost::program_options
-                              cppzmq-static Threads::Threads)
+                              cppzmq-static Threads::Threads
+                              -static-libstdc++)
 list(APPEND BINARIES dataPacketBroadcastProxy)
 
 if (${SEEDLink_FOUND} AND ${MiniSEED_FOUND})
@@ -77,7 +79,8 @@ if (${SEEDLink_FOUND} AND ${MiniSEED_FOUND})
    target_link_libraries(seedLinkDataPacketBroadcastPublisher
                          PRIVATE us8client spdlog::spdlog Boost::program_options
                                  cppzmq-static ${SEEDLINK_LIBRARY} ${MINISEED_LIBRARY}
-                                 Threads::Threads)
+                                 Threads::Threads
+                                 -static-libstdc++)
    list(APPEND BINARIES seedLinkDataPacketBroadcastPublisher)
 endif()
 
