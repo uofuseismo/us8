@@ -170,14 +170,14 @@ public:
     ///       human readable.
     [[nodiscard]] std::string serialize() const final;
     /// @brief Creates the class from a message.
-    void fromMessage(const std::string &message) final;
+    void deserialize(const std::string &message) final;
     /// @brief Creates the class from a message.
     /// @param[in] data    The contents of the message.  This is an
     ///                    array whose dimension is [length] 
     /// @param[in] length  The length of data.
     /// @throws std::runtime_error if the message is invalid.
     /// @throws std::invalid_argument if data is NULL or length is 0. 
-    void fromMessage(const char *data, size_t length) final;
+    void deserialize(const char *data, size_t length) final;
     /// @result The message type - e.g., "DataPacket".
     [[nodiscard]] std::string getMessageType() const noexcept final;
     /// @result The message version.

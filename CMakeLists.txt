@@ -6,6 +6,14 @@ option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 include(GenerateExportHeader)
 include(FetchContent)
 
+FetchContent_Declare(
+  readerwriterqueue
+  GIT_REPOSITORY    https://github.com/cameron314/readerwriterqueue
+  GIT_TAG           8b2176698e9bdaba653cdc20c32b54737a934b47
+  EXCLUDE_FROM_ALL
+)
+FetchContent_MakeAvailable(readerwriterqueue)
+
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
@@ -22,8 +30,11 @@ find_package(Threads REQUIRED)
 
 set(BINARIES "")
 set(CLIENT_LIBRARY_SRC 
+    version.cpp
     messageFormats/message.cpp
     messageFormats/broadcasts/dataPacket.cpp) 
+configure_file(${CMAKE_SOURCE_DIR}/version.hpp.in
+               ${CMAKE_SOURCE_DIR}/include/us8/version.hpp)
 add_library(us8client
             ${CLIENT_LIBRARY_SRC})
 target_sources(us8client
@@ -78,7 +89,7 @@ if (${SEEDLink_FOUND} AND ${MiniSEED_FOUND})
    target_link_libraries(seedLinkDataPacketBroadcastPublisher
                          PRIVATE us8client spdlog::spdlog Boost::program_options
                                  cppzmq-static ${SEEDLINK_LIBRARY} ${MINISEED_LIBRARY}
-                                 Threads::Threads)
+                                 readerwriterqueue Threads::Threads)
    list(APPEND BINARIES seedLinkDataPacketBroadcastPublisher)
 endif()
 

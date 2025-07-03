@@ -8,14 +8,14 @@ IMessage::IMessage() = default;
 /// Constructor
 IMessage::IMessage(const std::string &message)
 {
-    fromMessage(message);
+    deserialize(message);
 }
 
 /// Destructor
 IMessage::~IMessage() = default;
 
 /// Constructor
-void IMessage::fromMessage(const std::string &message)
+void IMessage::deserialize(const std::string &message)
 {
-    fromMessage(message.c_str(), message.size());
+    deserialize(message.c_str(), message.size());
 }

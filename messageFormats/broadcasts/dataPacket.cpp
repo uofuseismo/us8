@@ -73,34 +73,33 @@ nlohmann::json toJSONObject(const DataPacket &packet)
     return obj;
 }
 
-void objectToDataPacket(const nlohmann::json &obj, DataPacket *packet)
+DataPacket objectToDataPacket(const nlohmann::json &obj)
 {
-    packet->clear();
-    if (obj["messageType"] != packet->getMessageType())
+    DataPacket packet;
+    if (obj["messageType"] != packet.getMessageType())
     {
         throw std::invalid_argument("Message has invalid message type");
     }
     // Essential stuff
-    packet->setNetwork(obj["network"].get<std::string> ());
-    packet->setStation(obj["station"].get<std::string> ());
-    packet->setChannel(obj["channel"].get<std::string> ());
-    packet->setLocationCode(obj["locationCode"].get<std::string> ());
-    packet->setSamplingRate(obj["samplingRate"].get<double> ());
+    packet.setNetwork(obj["network"].get<std::string> ());
+    packet.setStation(obj["station"].get<std::string> ());
+    packet.setChannel(obj["channel"].get<std::string> ());
+    packet.setLocationCode(obj["locationCode"].get<std::string> ());
+    packet.setSamplingRate(obj["samplingRate"].get<double> ());
     auto startTime = obj["startTime"].get<int64_t> ();
     std::chrono::microseconds startTimeMuS{startTime};
-    packet->setStartTime(startTimeMuS);
+    packet.setStartTime(startTimeMuS);
 
     std::vector<double> data = obj["data"]; //.get<std::vector<T>>
-    if (!data.empty()){packet->setData(std::move(data));}
-
+    if (!data.empty()){packet.setData(std::move(data));}
+    return std::move(packet);
 }
 
-void fromCBORMessage(const uint8_t *message,
-                     const size_t length,
-                     DataPacket *packet)
+DataPacket fromCBORMessage(const uint8_t *message,
+                           const size_t length)
 {
     auto obj = nlohmann::json::from_cbor(message, message + length);
-    objectToDataPacket(obj, packet);
+    return std::move(::objectToDataPacket(obj));
 }
 
 }
@@ -535,23 +534,21 @@ std::string DataPacket::serialize() const
     return result;
 }
 
-void DataPacket::fromMessage(const std::string &message)
+void DataPacket::deserialize(const std::string &message)
 {
     if (message.empty()){throw std::invalid_argument("Message is empty");}
-    fromMessage(message.data(), message.size());   
+    deserialize(message.data(), message.size());   
 }
 
-void DataPacket::fromMessage(const char *messageIn, const size_t length)
+void DataPacket::deserialize(const char *messageIn, const size_t length)
 {
     if (length == 0){throw std::invalid_argument("No data");}
-    auto message = reinterpret_cast<const uint8_t *> (messageIn);
-    if (message == nullptr)
-    {
+    if (messageIn == nullptr)
+    {   
         throw std::invalid_argument("message is null");
     }
-    DataPacket packet;
-    ::fromCBORMessage(message, length, &packet);
-    *this = std::move(packet);
+    auto message = reinterpret_cast<const uint8_t *> (messageIn);
+    *this = std::move(::fromCBORMessage(message, length));
 }
 
 /// Data type

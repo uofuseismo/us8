@@ -16,7 +16,7 @@
 #include "streamSelector.hpp"
 #include "us8/messageFormats/broadcasts/dataPacket.hpp"
 #include "us8/broadcasts/dataPacket/client.hpp"
-//#include "us8/version.hpp"
+#include "us8/version.hpp"
 
 using namespace US8::Broadcasts::DataPacket::SEEDLink;
 
@@ -332,8 +332,8 @@ public:
         mInitialized = false;
         // Create a new instance
         mSEEDLinkConnection
-            = sl_initslcd(mClientName.c_str(), "0.1.0"); // TODO
-//                          US8::Version::getVersion().c_str());
+            = sl_initslcd(mClientName.c_str(),
+                          US8::Version::getVersion().c_str());
         if (!mSEEDLinkConnection)
         {
             throw std::runtime_error("Failed to create client handle");

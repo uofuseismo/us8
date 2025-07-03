@@ -9,8 +9,8 @@
 #include <spdlog/spdlog.h>
 #include <boost/program_options.hpp>
 
-#define FRONTEND_ADDRESS "tcp://*:5555"
-#define BACKEND_ADDRESS "tcp://*:5556"
+#define FRONTEND_ADDRESS "tcp://127.0.0.1:5550"
+#define BACKEND_ADDRESS "tcp://127.0.0.1:5551"
 
 
 struct ProgramOptions
@@ -25,7 +25,7 @@ struct ProgramOptions
 
 namespace
 {
-std::atomic_bool mInterrupted{false};
+std::atomic<bool> mInterrupted{false};
 }
 
 class Process
@@ -222,9 +222,7 @@ public:
         // down after SIGTERM or the hammer is coming down!
         sigaction(SIGTERM, &action, NULL);
     }
-
-    /// @brief Defines the callback for adding packets.
-
+//private:
     std::thread mProxyThread;
     std::string mControlAddress;
     zmq::context_t mProxyContext{1};
@@ -299,7 +297,7 @@ The dataPacketBroadcastProxy is middleware to which programs can forward
 data from utilities like SEEDLink to a cluster data broadcast.
 
 Example usage:
-    dataPacketBroadcastProxy --frontend=tcp://127.0.0.1:5555 --backend=tcp://127.0.0.1:5556
+    dataPacketBroadcastProxy --frontend=tcp://127.0.0.1:5550 --backend=tcp://127.0.0.1:5551
 
 Allowed options)""");
     desc.add_options()

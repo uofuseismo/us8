@@ -27,10 +27,10 @@ public:
     /// @note Though the container is a string the message need not be
     ///       human readable.
     [[nodiscard]] virtual std::string serialize() const = 0;
-    /// @brief Converts this message from a string representation to a class.
-    virtual void fromMessage(const std::string &message);
-    /// @brief Converts this message from a string representation to a class.
-    virtual void fromMessage(const char *data, size_t length) = 0;
+    /// @brief Converts this message from a byte-stream representation to a class.
+    virtual void deserialize(const std::string &message);
+    /// @brief Converts this message from a byte-stream representation to a class.
+    virtual void deserialize(const char *data, size_t length) = 0;
     /// @result The message type.
     [[nodiscard]] virtual std::string getMessageType() const noexcept = 0;
     /// @result The message version.
