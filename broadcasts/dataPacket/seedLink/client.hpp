@@ -21,8 +21,8 @@ public:
     void connect() final;
     void start() final;
     void stop() final;
-    [[nodiscard]] bool isInitialized() const noexcept;
-    [[nodiscard]] bool isConnected() const noexcept;
+    [[nodiscard]] bool isInitialized() const noexcept final;
+    [[nodiscard]] bool isConnected() const noexcept final;
     [[nodiscard]] US8::Broadcasts::DataPacket::IClient::Type getType() const noexcept final;
 private:
     class ClientImpl;
