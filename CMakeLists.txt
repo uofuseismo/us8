@@ -35,16 +35,15 @@ set(CLIENT_LIBRARY_SRC
     messageFormats/broadcasts/dataPacket.cpp) 
 configure_file(${CMAKE_SOURCE_DIR}/version.hpp.in
                ${CMAKE_SOURCE_DIR}/include/us8/version.hpp)
-add_library(us8client
-            ${CLIENT_LIBRARY_SRC})
+add_library(us8client ${CLIENT_LIBRARY_SRC})
 target_sources(us8client
                PUBLIC
                FILE_SET HEADERS
                BASE_DIRS
-                 ${CMAKE_CURRENT_SOURCE_DIR}
+                  ${CMAKE_CURRENT_SOURCE_DIR}
                FILES 
-                 include/us8/messageFormats/message.hpp
-                 include/us8/messageFormats/broadcasts/dataPacket.hpp
+                  include/us8/messageFormats/message.hpp
+                  include/us8/messageFormats/broadcasts/dataPacket.hpp
                )
 set_target_properties(us8client PROPERTIES
                       CXX_STANDARD 20
@@ -56,6 +55,34 @@ target_include_directories(us8client
 target_link_libraries(us8client
                       PRIVATE nlohmann_json::nlohmann_json spdlog::spdlog)
 
+set(MESSAGING_LIBRARY_SRC
+    messaging/authentication/authenticator.cpp
+    messaging/authentication/credential/userNameAndPassword.cpp
+    messaging/zeromq/authentication/service.cpp
+    messaging/zeromq/authentication/grasslands.cpp
+    messaging/zeromq/authentication/zapOptions.cpp)
+add_library(us8messaging ${MESSAGING_LIBRARY_SRC})
+target_sources(us8messaging
+               PUBLIC
+               FILE_SET HEADERS
+               BASE_DIRS
+                  ${CMAKE_CURRENT_SOURCE_DIR}
+               FILES
+                  include/us8/messaging/authentication/exceptions.hpp
+                  include/us8/messaging/authentication/authenticator.hpp
+                  include/us8/messaging/zeromq/authentication/service.hpp
+                  include/us8/messaging/zeromq/authentication/zapOptions.hpp
+                  include/us8/messaging/zeromq/authentication/grasslands.hpp)
+set_target_properties(us8messaging PROPERTIES
+                      CXX_STANDARD 20
+                      CXX_STANDARD_REQUIRED YES
+                      CXX_EXTENSIONS NO)
+target_include_directories(us8messaging
+                           PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
+                           PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
+target_link_libraries(us8messaging
+                      PRIVATE spdlog::spdlog cppzmq-static Threads::Threads)
+
 add_executable(dataPacketBroadcastProxy 
                broadcasts/dataPacket/proxy.cpp)
 set_target_properties(dataPacketBroadcastProxy PROPERTIES
@@ -66,7 +93,7 @@ target_include_directories(dataPacketBroadcastProxy
                            PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/lib>
                            PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
 target_link_libraries(dataPacketBroadcastProxy
-                      PRIVATE spdlog::spdlog Boost::program_options
+                      PRIVATE us8messaging spdlog::spdlog Boost::program_options
                               cppzmq-static Threads::Threads)
 list(APPEND BINARIES dataPacketBroadcastProxy)
 
@@ -87,7 +114,7 @@ if (${SEEDLink_FOUND} AND ${MiniSEED_FOUND})
                               PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/lib:${MINISEED_INCLUDE_DIR}:${SEEDLINK_INCLUDE_DIR}> 
                               PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
    target_link_libraries(seedLinkDataPacketBroadcastPublisher
-                         PRIVATE us8client spdlog::spdlog Boost::program_options
+                         PRIVATE us8client us8messaging spdlog::spdlog Boost::program_options
                                  cppzmq-static ${SEEDLINK_LIBRARY} ${MINISEED_LIBRARY}
                                  readerwriterqueue Threads::Threads)
    list(APPEND BINARIES seedLinkDataPacketBroadcastPublisher)
@@ -109,7 +136,7 @@ write_basic_package_version_file(
     COMPATIBILITY AnyNewerVersion
 )
 
-install(TARGETS us8client
+install(TARGETS us8client us8messaging
         EXPORT ${PROJECT_NAME}-targets
         FILE_SET HEADERS
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
