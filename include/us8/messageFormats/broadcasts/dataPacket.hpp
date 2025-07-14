@@ -127,8 +127,11 @@ public:
     /// @{
 
     /// @brief Sets the time series data in this packet.
-    /// @param[in] data  The time series data.
+    /// @param[in,out] data  The time series data.  On exit, data's behavior
+    ///                      is undefined.
     template<typename U> void setData(std::vector<U> &&data);
+    /// @brief Sets the time series data in this packet.
+    /// @param[in] data  The time series data.
     template<typename U> void setData(const std::vector<U> &data);
     /// @brief Sets the time series data in this packet.
     /// @param[in,out] data  The time series data whose memory will be moved

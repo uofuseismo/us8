@@ -10,7 +10,7 @@ public:
     /// @brief Constructs a Grasslands authenticator service.
     /// @param[in] context     The context of the socket on which to set the
     ///                        authentication.
-    explicit Service(std::shared_ptr<zmq::context_t> context);
+    //explicit Service(std::shared_ptr<zmq::context_t> context);
     /// @brief Constructs a Grasslands authenticator service.
     /// @param[in] context     The context of the socket on which to set the
     ///                        authentication.

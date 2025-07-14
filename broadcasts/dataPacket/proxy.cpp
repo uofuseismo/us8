@@ -8,6 +8,8 @@
 #include <zmq.hpp>
 #include <spdlog/spdlog.h>
 #include <boost/program_options.hpp>
+#include "us8/messaging/zeromq/authentication/zapOptions.hpp"
+#include "us8/messaging/zeromq/authentication/service.hpp"
 
 #define FRONTEND_ADDRESS "tcp://127.0.0.1:5550"
 #define BACKEND_ADDRESS "tcp://127.0.0.1:5551"
@@ -45,6 +47,10 @@ public:
         {
             spdlog::info("Binding frontend proxy socket to " 
                        + options.frontendAddress);
+            US8::Messaging::ZeroMQ::Authentication::Grasslands authenticator;
+            US8::Messaging::ZeroMQ::Authentication::GrasslandsServer grasslandsServer;
+            grasslandsServer.setSocketOptions(&mFrontendSocket); 
+            mFrontendAuthenticator = std::make_unique<US8::Messaging::ZeroMQ::Authentication::Service> (mFrontendContext, std::move(authenticator));
             mFrontendSocket.bind(options.frontendAddress);
         }
         catch (const std::exception &e)
@@ -59,6 +65,10 @@ public:
         {
             spdlog::info("Binding backend proxy socket to "
                        + options.backendAddress);
+            US8::Messaging::ZeroMQ::Authentication::Grasslands authenticator;
+            US8::Messaging::ZeroMQ::Authentication::GrasslandsServer grasslandsServer;
+            grasslandsServer.setSocketOptions(&mBackendSocket); 
+            mBackendAuthenticator = std::make_unique<US8::Messaging::ZeroMQ::Authentication::Service> (mBackendContext, std::move(authenticator));
             mBackendSocket.set(zmq::sockopt::linger, 0); // Drop pending messages
             mBackendSocket.bind(options.backendAddress);
         }
@@ -112,6 +122,16 @@ public:
     /// @brief Starts the proxy.
     void start()
     {
+        if (mFrontendAuthenticator)
+        {
+            spdlog::info("Starting the frontend authenticator");
+            mFrontendAuthenticator->start();
+        }
+        if (mBackendAuthenticator)
+        {
+            spdlog::info("Starting the backend authenticator");
+            mBackendAuthenticator->start();
+        }
         spdlog::info("Starting the proxy");
         mProxyThread = std::thread(&::Process::proxyRun, this);
         mProxyState = ProxyState::Running;
@@ -165,6 +185,8 @@ public:
     /// @brief Allows the main thread to stop the proxy.
     void stop()
     {
+        if (mFrontendAuthenticator){mFrontendAuthenticator->stop();}
+        if (mBackendAuthenticator){mBackendAuthenticator->stop();}
         if (mProxyState == ProxyState::Running || 
             mProxyState == ProxyState::Paused)
         {
@@ -225,10 +247,13 @@ public:
 //private:
     std::thread mProxyThread;
     std::string mControlAddress;
-    zmq::context_t mProxyContext{1};
+    std::shared_ptr<zmq::context_t> mFrontendContext{std::make_shared<zmq::context_t> (1)};
+    std::shared_ptr<zmq::context_t> mBackendContext{std::make_shared<zmq::context_t> (1)};
+    std::unique_ptr<US8::Messaging::ZeroMQ::Authentication::Service> mFrontendAuthenticator{nullptr};
+    std::unique_ptr<US8::Messaging::ZeroMQ::Authentication::Service> mBackendAuthenticator{nullptr};
     zmq::context_t mControlContext{1};
-    zmq::socket_t mFrontendSocket{mProxyContext, zmq::socket_type::xsub}; 
-    zmq::socket_t mBackendSocket{mProxyContext,  zmq::socket_type::xpub};
+    zmq::socket_t mFrontendSocket{*mFrontendContext, zmq::socket_type::xsub}; 
+    zmq::socket_t mBackendSocket{*mBackendContext,  zmq::socket_type::xpub};
     zmq::socket_t mControlSocket{mControlContext, zmq::socket_type::rep};
     zmq::socket_t mCommandSocket{mControlContext, zmq::socket_type::req};
     std::atomic<ProxyState> mProxyState{ProxyState::NotRunning};

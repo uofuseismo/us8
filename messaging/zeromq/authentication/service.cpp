@@ -105,28 +105,20 @@ public:
         zap.bind(ZAP_ENDPOINT);
 
         // Let API pipe know I'm ready with an empty message
-        apiPipe.send(zmq::message_t{}, zmq::send_flags::none);
+        //apiPipe.send(zmq::message_t{}, zmq::send_flags::none);
         spdlog::info("Starting authenticator on endpoint " + mEndPoint);
         apiPipe.send(zmq::message_t {}, zmq::send_flags::none);
-        constexpr int nPollItems{2};
-        zmq::pollitem_t pollItems[] =
-    {
-        {apiPipe.handle(), 0, ZMQ_POLLIN, 0},
-        {zap.handle(),  0, ZMQ_POLLIN, 0}
-    };
-/*
         std::array<zmq::pollitem_t, 2> pollItems =
         {
             { {apiPipe.handle(), 0, ZMQ_POLLIN, 0},
               {zap.handle(),  0, ZMQ_POLLIN, 0} }
         };
-*/
-
         // Wait indefinitely for another thread to release me
         constexpr std::chrono::milliseconds pollTimeOutMilliSeconds{-1};
         while (keepRunning())
         {
-            zmq::poll(pollItems, nPollItems, //pollItems.data(), pollItems.size(),
+            zmq::poll(//pollItems, nPollItems, //
+                      pollItems.data(), pollItems.size(),
                       pollTimeOutMilliSeconds);
             // API request
             if (pollItems[0].revents & ZMQ_POLLIN)
@@ -159,7 +151,7 @@ public:
                 spdlog::info("ZAP request received");
                 zmq::multipart_t messagesReceived;
                 auto okay = messagesReceived.recv(zap);
-                if (okay)
+                if (okay && mKeepRunning)
                 {
 #ifndef NDEUBG
                     assert(messagesReceived.size() >= 6);
@@ -189,7 +181,8 @@ public:
                                     throw UExcept::BadRequest(
                                        "User name is empty");
                                 }
-                                US8::Messaging::Authentication::Credential::UserNameAndPassword plainText{user, password};
+                                US8::Messaging::Authentication::Credential
+                                ::UserNameAndPassword plainText{user, password};
                             } 
                             else if (mechanism == "CURVE")
                             {
@@ -213,30 +206,49 @@ public:
                                 }
                             }
                             // Made it this far without throwing - you're okay
+                            spdlog::info("Allowing connection from " + ipAddress
+                                       + " on domain " + domain);
                             statusCode = 200;
                             statusText = "OK";
                         }
                         catch (const UExcept::BadRequest &e)
                         {
+                            spdlog::debug("Bad request received from "
+                                        + ipAddress);
                             statusCode = 400;
                             statusText = e.what();
                         }
+                        catch (const UExcept::Unauthorized &e)
+                        {
+                            spdlog::info(ipAddress + " is not authorized");
+                            statusCode = 401;
+                            statusText = "Unauthorized";
+                        }
                         catch (const UExcept::Forbidden &e)
                         {
+                            spdlog::info(ipAddress + " is forbidden");
                             statusCode = 403;
                             statusText = "Forbidden";
                         }
                         catch (const UExcept::InternalServerError &e)
                         {
+                            spdlog::warn("Internal error "
+                                       + std::string {e.what()});
                             statusCode = 500;
                             statusText = "Internal server error"; 
                         }
                         catch (const std::exception &e)
                         { 
+                            spdlog::warn("Unhandled exception "
+                                       + std::string {e.what()});
                             spdlog::warn(e.what());
                             statusCode = 500;
                             statusText = "Internal server error";
                         }
+                    }
+                    else
+                    {
+                        spdlog::warn("No authenticator set - forbidding access to " + ipAddress);
                     }
                     // Format result.  The order is defined in:
                     // https://rfc.zeromq.org/spec/27/
@@ -245,7 +257,7 @@ public:
                     reply.addstr(messagesReceived.at(1).to_string()); // Sequence Number 
                     reply.addstr(std::to_string(statusCode));
                     reply.addstr(statusText);
-                    reply.addstr("US8ZMQAuth");
+                    reply.addstr(mAuthenticatorIdentifier);
                     reply.addstr(""); // Always end with this
                     reply.send(zap);
                 }
@@ -276,6 +288,7 @@ public:
     }
 //private:
     std::thread mZAPThread;
+    std::string mAuthenticatorIdentifier{"US8ZMAAuth"};
     std::unique_ptr<US8::Messaging::Authentication::IAuthenticator>
         mAuthenticator{nullptr};
     std::shared_ptr<zmq::context_t> mContext{nullptr};
@@ -286,8 +299,9 @@ public:
 };
 
 /// Constructor
-Service::Service(std::shared_ptr<zmq::context_t> context) :
-    pImpl(std::make_unique<ServiceImpl> (context))
+Service::Service(std::shared_ptr<zmq::context_t> context,
+                 Grasslands &&grasslands) :
+    pImpl(std::make_unique<ServiceImpl> (context, std::move(grasslands)))
 {
 }
 
