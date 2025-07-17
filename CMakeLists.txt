@@ -93,9 +93,26 @@ target_include_directories(dataPacketBroadcastProxy
                            PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/lib>
                            PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
 target_link_libraries(dataPacketBroadcastProxy
-                      PRIVATE us8messaging spdlog::spdlog Boost::program_options
+                      PRIVATE us8messaging us8client spdlog::spdlog Boost::program_options
                               cppzmq-static Threads::Threads)
 list(APPEND BINARIES dataPacketBroadcastProxy)
+
+add_executable(dataPacketSanitizer
+               broadcasts/dataPacket/sanitizer/sanitizer.cpp
+               broadcasts/dataPacket/sanitizer/testFutureDataPacket.cpp
+               broadcasts/dataPacket/sanitizer/testExpiredDataPacket.cpp)
+set_target_properties(dataPacketSanitizer PROPERTIES
+                      CXX_STANDARD 20
+                      CXX_STANDARD_REQUIRED YES
+                      CXX_EXTENSIONS NO)
+target_include_directories(dataPacketSanitizer
+                           PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/lib>
+                           PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
+target_link_libraries(dataPacketSanitizer
+                      PRIVATE us8messaging us8client spdlog::spdlog Boost::program_options
+                              readerwriterqueue cppzmq-static Threads::Threads)
+list(APPEND BINARIES dataPacketSanitizer)
+
 
 if (${SEEDLink_FOUND} AND ${MiniSEED_FOUND})
    add_executable(seedLinkDataPacketBroadcastPublisher

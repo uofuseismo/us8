@@ -71,7 +71,7 @@ void GrasslandsClient::setSocketOptions(zmq::socket_t *options) const
 }
 
 ///--------------------------------------------------------------------------///
-///                             Grasslands Client                            ///
+///                             Grasslands Server                            ///
 ///--------------------------------------------------------------------------///
 class GrasslandsServer::GrasslandsServerImpl
 {
@@ -138,6 +138,78 @@ std::string GrasslandsServer::getDomain() const noexcept
 /// ZAP options
 void GrasslandsServer::setSocketOptions(zmq::socket_t *options) const
 {
+    if (options == nullptr){throw std::runtime_error("Socket pointer is NULL");}
+    options->set(zmq::sockopt::zap_domain, getDomain());
+}
+
+///--------------------------------------------------------------------------///
+///                               Strawhouse                                 ///
+///--------------------------------------------------------------------------///
+class StrawhouseServer::StrawhouseServerImpl
+{
+public:
+    std::string mDomain{"global"};
+};
+
+/// Constructor
+StrawhouseServer::StrawhouseServer() :
+    pImpl(std::make_unique<StrawhouseServerImpl> ()) 
+{
+}
+
+/// Copy constructor
+StrawhouseServer::StrawhouseServer(const StrawhouseServer &server)
+{
+    *this = server;
+}
+
+/// Move constructor
+StrawhouseServer::StrawhouseServer(StrawhouseServer &&server) noexcept
+{
+    *this = std::move(server);
+}
+
+/// Copy assignment
+StrawhouseServer& StrawhouseServer::operator=(const StrawhouseServer &server)
+{
+    if (&server == this){return *this;}
+    pImpl = std::make_unique<StrawhouseServerImpl> (*server.pImpl);
+    return *this;
+}
+
+/// Move assignment
+StrawhouseServer&
+StrawhouseServer::operator=(StrawhouseServer &&server) noexcept
+{
+    if (&server == this){return *this;}
+    pImpl = std::move(server.pImpl);
+    return *this;
+}
+
+/// Destructor
+StrawhouseServer::~StrawhouseServer() = default;
+
+/// Protocol
+Protocol StrawhouseServer::getProtocol() const noexcept
+{
+    return Protocol::Strawhouse;
+}
+    
+/// Auth server?
+bool StrawhouseServer::isAuthenticationServer() const noexcept
+{
+    return true;
+}
+    
+/// Domain
+std::string StrawhouseServer::getDomain() const noexcept
+{
+    return pImpl->mDomain;
+}
+
+/// ZAP options
+void StrawhouseServer::setSocketOptions(zmq::socket_t *options) const
+{   
     if (options == nullptr){throw std::runtime_error("Socket pointer is NULL");}
     options->set(zmq::sockopt::zap_domain, getDomain());
 }

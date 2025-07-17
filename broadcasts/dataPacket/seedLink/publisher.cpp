@@ -4,6 +4,7 @@
 #include <thread>
 #include <filesystem>
 #include <zmq.hpp>
+#include <zmq_addon.hpp>
 #include <cerrno>
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
@@ -27,7 +28,7 @@ std::atomic<bool> mInterrupted{false};
 struct ProgramOptions
 {
     US8::Broadcasts::DataPacket::SEEDLink::ClientOptions seedLinkClientOptions;
-    std::string subscriberAddress{PROXY_FRONTEND_ADDRESS};
+    std::string proxyFrontendAddress{PROXY_FRONTEND_ADDRESS};
     // Maximum time before a send operation returns with EAGAIN
     // -1 waits forever whereas 0 returns immediately.
     std::chrono::milliseconds sendTimeOut{1000}; // 1s is enough
@@ -62,8 +63,9 @@ public:
                 mPublisherSocket.set(zmq::sockopt::sndtimeo,
                                      timeOutMilliSeconds);
             }
-            spdlog::info("Connecting to " + options.subscriberAddress);
-            mPublisherSocket.connect(options.subscriberAddress);
+            spdlog::info("Connecting to proxy frontend address "
+                       + options.proxyFrontendAddress);
+            mPublisherSocket.connect(options.proxyFrontendAddress);
         }
         catch (const std::exception &e)
         {
@@ -138,10 +140,12 @@ public:
             auto packet = mQueue.peek();
             if (packet)
             {
-                std::string messageContainer;
+                std::string messageType;
+                std::string messagePayload;
                 try
                 {
-                    messageContainer = packet->serialize();
+                    messageType = packet->getMessageType();
+                    messagePayload = packet->serialize();
                 }
                 catch (const std::exception &e)
                 {
@@ -154,10 +158,18 @@ public:
                 }
                 try
                 {
-                    zmq::message_t message{messageContainer.data(),
-                                           messageContainer.size()};
-                    mPublisherSocket.send(std::move(message),
-                                          zmq::send_flags::dontwait);
+                    std::array<zmq::const_buffer, 2> messages{
+                       zmq::const_buffer {messageType.data(),
+                                          messageType.size()},
+                       zmq::const_buffer {messagePayload.data(),
+                                          messagePayload.size()}
+                    };
+                    auto nPartsSent = zmq::send_multipart(mPublisherSocket, messages);
+                    if (nPartsSent != 2)
+                    {
+                        throw std::runtime_error(
+                            "Failed to send two-part message");
+                    }
                     nSentPackets = nSentPackets + 1;
                 }
                 catch (const std::exception &e)
@@ -190,7 +202,7 @@ public:
                     + std::to_string(nSentPackets)
                     + " packets in last "
                     + std::to_string(mLogPublishingPerformanceInterval.count())
-                    + "seconds. (Failed to send " 
+                    + " seconds. (Failed to send " 
                     + std::to_string(nNotSentPackets) + " packets.)");
                 nSentPackets = 0;
                 nNotSentPackets = 0;
@@ -356,36 +368,6 @@ int main(int argc, char *argv[])
 
     process->handleMainThread();
 
-    /* 
-    // Receive from our publishers
-    spdlog::info("Creating ZMQ publisher");
-    auto zmqContext = zmq_ctx_new();
-    auto publisherSocket = zmq_socket(zmqContext, ZMQ_PUB);
-    spdlog::info("Connecting to proxy frontend at " 
-               + programOptions.subscriberAddress);
-    auto response = zmq_connect(publisherSocket,
-                                programOptions.subscriberAddress.c_str());
-    if (response != 0)
-    {
-        spdlog::error("Failed to connect to proxy");
-        return EXIT_SUCCESS;
-    }
-
-
-    for (int i = 0; i < 20; ++i)
-    {
-        std::string zmqMessage{"abc123"};
-        auto bytesSent = zmq_send(publisherSocket, zmqMessage.c_str(), zmqMessage.size(), 0);
-        spdlog::info("Sent " + std::to_string(bytesSent));
-        std::this_thread::sleep_for(std::chrono::seconds {1});
-    }
-    response = zmq_close(publisherSocket);
-    if (response != 0)
-    {
-        spdlog::warn("Failed to close socket");
-    }
-    zmq_ctx_destroy(zmqContext);
-    */
     return EXIT_SUCCESS;
 }
 
@@ -520,17 +502,17 @@ getSEEDLinkOptions(const boost::property_tree::ptree &propertyTree,
     boost::property_tree::ini_parser::read_ini(iniFile, propertyTree);
 
     // ZeroMQ
-    options.subscriberAddress
-        = propertyTree.get<std::string> ("ZeroMQ.subscriberAddress",
-                                         options.subscriberAddress);
-    if (options.subscriberAddress.empty())
+    options.proxyFrontendAddress
+        = propertyTree.get<std::string> ("ZeroMQ.proxyFrontendAddress",
+                                         options.proxyFrontendAddress);
+    if (options.proxyFrontendAddress.empty())
     {
-        throw std::invalid_argument("ZeroMQ.subscriberAddress is empty");
+        throw std::invalid_argument("ZeroMQ.proxyFrontendAddress is empty");
     }
-    if (!options.subscriberAddress.starts_with("tcp://"))
+    if (!options.proxyFrontendAddress.starts_with("tcp://"))
     {
         throw std::invalid_argument(
-            "ZeroMQ.subscriberAddresss must starts with tcp://");
+            "ZeroMQ.proxyFrontendAddresss must starts with tcp://");
     }
     options.sendHighWaterMark
         = propertyTree.get<int> ("ZeroMQ.sendHighWaterMark",
