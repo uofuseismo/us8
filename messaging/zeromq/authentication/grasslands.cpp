@@ -50,24 +50,24 @@ Grasslands& Grasslands::operator=(Grasslands &&grasslands) noexcept
 Grasslands::~Grasslands() = default;
 
 /// Everything comes through!
-bool Grasslands::isBlackListed(const std::string &address) const
+std::string Grasslands::isBlackListed(const std::string &address) const
 {
     if (spdlog::get_level() < spdlog::level::debug)
     {
         spdlog::info("Grasslands address: "
                    + address + " is not blacklisted");
     }
-    return false;
+    return OKAY_MESSAGE;
 }   
 
-bool Grasslands::isWhiteListed(const std::string &address) const
+std::string Grasslands::isWhiteListed(const std::string &address) const
 {
     if (spdlog::get_level() < spdlog::level::debug)
     {
         spdlog::info("Grasslands address: "
                    + address + " is whitelisted");
     }
-    return true;
+    return OKAY_MESSAGE;
 }
 
 std::string Grasslands::authenticate(

@@ -17,10 +17,10 @@ public:
     Grasslands(Grasslands &&grasslands) noexcept;
     /// @brief Destructor.
     ~Grasslands() override final;
-    /// @result False because nothing is blacklisted in grasslands.
-    [[nodiscard]] bool isBlackListed(const std::string &ipAddress) const override final;
-    /// @result True because everything is whitelisted in grasslands.
-    [[nodiscard]] bool isWhiteListed(const std::string &ipAddress) const override final;
+    /// @result OK because nothing is blacklisted in grasslands.
+    [[nodiscard]] std::string isBlackListed(const std::string &ipAddress) const override final;
+    /// @result OK because everything is whitelisted in grasslands.
+    [[nodiscard]] std::string isWhiteListed(const std::string &ipAddress) const override final;
     /// @brief Determines if the user presenting the given username and
     ///        password is allowed.
     /// @result A messaging indicating the user is allowed.
