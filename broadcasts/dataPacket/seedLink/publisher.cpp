@@ -164,7 +164,8 @@ public:
                        zmq::const_buffer {messagePayload.data(),
                                           messagePayload.size()}
                     };
-                    auto nPartsSent = zmq::send_multipart(mPublisherSocket, messages);
+                    auto nPartsSent
+                        = zmq::send_multipart(mPublisherSocket, messages);
                     if (nPartsSent != 2)
                     {
                         throw std::runtime_error(
@@ -265,6 +266,7 @@ public:
                     mStopRequested = true;
                     break;
                 }   
+                std::this_thread::sleep_for(std::chrono::milliseconds {50});
             }
         }
         if (mStopRequested) 

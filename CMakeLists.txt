@@ -100,7 +100,8 @@ list(APPEND BINARIES dataPacketBroadcastProxy)
 add_executable(dataPacketSanitizer
                broadcasts/dataPacket/sanitizer/sanitizer.cpp
                broadcasts/dataPacket/sanitizer/testFutureDataPacket.cpp
-               broadcasts/dataPacket/sanitizer/testExpiredDataPacket.cpp)
+               broadcasts/dataPacket/sanitizer/testExpiredDataPacket.cpp
+               broadcasts/dataPacket/sanitizer/testDuplicateDataPacket.cpp)
 set_target_properties(dataPacketSanitizer PROPERTIES
                       CXX_STANDARD 20
                       CXX_STANDARD_REQUIRED YES

@@ -35,6 +35,8 @@ public:
     /// @param[in,out] packet  The data packet from which to initialize this
     ///                        class.  On exit, packet's behavior is undefined.
     DataPacket(DataPacket &&packet) noexcept;
+    /// @brief Constructs class from a message.
+    DataPacket(const char *data, size_t length);
     /// @}
 
     /// @name Operators

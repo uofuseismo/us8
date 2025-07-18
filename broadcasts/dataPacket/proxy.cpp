@@ -219,6 +219,17 @@ public:
                     mStopRequested = true;
                     break;
                 }
+                std::this_thread::sleep_for(std::chrono::milliseconds {50});
+/*
+                std::unique_lock<std::mutex> lock(mStopContext);
+                mStopCondition.wait_for(lock,
+                                        std::chrono::milliseconds {100},
+                                        [this]
+                                        {
+                                              return mStopRequested;
+                                        });
+                lock.unlock();
+*/
             }
         }
         if (mStopRequested) 

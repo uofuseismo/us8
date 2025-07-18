@@ -216,23 +216,31 @@ void DataPacket::clear() noexcept
     pImpl->mSamplingRate = 0;
 }
 
-/// C'tor
+/// Constructor
 DataPacket::DataPacket() :
     IMessage(),
     pImpl(std::make_unique<DataPacketImpl> ())
 {
 }
 
-/// Copy c'tor 
+/// Copy constructor
 DataPacket::DataPacket(const DataPacket &packet)
 {
     *this = packet;
 }
 
-/// Move c'tor
+/// Move constructor
 DataPacket::DataPacket(DataPacket &&packet) noexcept
 {
     *this = std::move(packet);
+}
+
+/// Construct from message
+DataPacket::DataPacket(const char *data, const size_t size) :
+    IMessage(),
+    pImpl(std::make_unique<DataPacketImpl> ())
+{
+    deserialize(data, size);
 }
 
 /// Copy assignment
