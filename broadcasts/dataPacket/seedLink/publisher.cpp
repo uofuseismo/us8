@@ -333,13 +333,15 @@ int main(int argc, char *argv[])
     ::ProgramOptions programOptions;
     try
     {
-        programOptions = parseIniFile(iniFile);
+        programOptions = ::parseIniFile(iniFile);
     }
     catch (const std::exception &e)
     {
         spdlog::error(e.what());
         return EXIT_FAILURE;
     }
+
+    // Verbosity
     if (programOptions.verbosity <= 1){spdlog::set_level(spdlog::level::critical);}
     if (programOptions.verbosity == 2){spdlog::set_level(spdlog::level::warn);}
     if (programOptions.verbosity == 3){spdlog::set_level(spdlog::level::info);}

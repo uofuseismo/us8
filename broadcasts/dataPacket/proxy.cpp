@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <filesystem>
 #include <sstream>
 #include <atomic>
 #include <chrono>
@@ -8,6 +9,8 @@
 #include <zmq.hpp>
 #include <spdlog/spdlog.h>
 #include <boost/program_options.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/ini_parser.hpp>
 #include "us8/messaging/zeromq/authentication/zapOptions.hpp"
 #include "us8/messaging/zeromq/authentication/service.hpp"
 
@@ -17,13 +20,14 @@
 
 struct ProgramOptions
 {
-    std::string frontendAddress{FRONTEND_ADDRESS};
-    std::string backendAddress{BACKEND_ADDRESS};
+    std::string proxyFrontendAddress{FRONTEND_ADDRESS};
+    std::string proxyBackendAddress{BACKEND_ADDRESS};
     int verbosity{3};
     bool helpOnly{false};
 };
 
-::ProgramOptions parseCommandLineOptions(int argc, char *argv[]);
+std::pair<std::string, bool> parseCommandLineOptions(int argc, char *argv[]);
+::ProgramOptions parseIniFile(const std::filesystem::path &iniFile);
 
 namespace
 {
@@ -46,12 +50,12 @@ public:
         try
         {
             spdlog::info("Binding frontend proxy socket to " 
-                       + options.frontendAddress);
+                       + options.proxyFrontendAddress);
             US8::Messaging::ZeroMQ::Authentication::Grasslands authenticator;
             US8::Messaging::ZeroMQ::Authentication::GrasslandsServer grasslandsServer;
             grasslandsServer.setSocketOptions(&mFrontendSocket); 
             mFrontendAuthenticator = std::make_unique<US8::Messaging::ZeroMQ::Authentication::Service> (mFrontendContext, std::move(authenticator));
-            mFrontendSocket.bind(options.frontendAddress);
+            mFrontendSocket.bind(options.proxyFrontendAddress);
         }
         catch (const std::exception &e)
         {
@@ -64,13 +68,13 @@ public:
         try
         {
             spdlog::info("Binding backend proxy socket to "
-                       + options.backendAddress);
+                       + options.proxyBackendAddress);
             US8::Messaging::ZeroMQ::Authentication::Grasslands authenticator;
             US8::Messaging::ZeroMQ::Authentication::GrasslandsServer grasslandsServer;
             grasslandsServer.setSocketOptions(&mBackendSocket); 
             mBackendAuthenticator = std::make_unique<US8::Messaging::ZeroMQ::Authentication::Service> (mBackendContext, std::move(authenticator));
             mBackendSocket.set(zmq::sockopt::linger, 0); // Drop pending messages
-            mBackendSocket.bind(options.backendAddress);
+            mBackendSocket.bind(options.proxyBackendAddress);
         }
         catch (const std::exception &e)
         {
@@ -273,17 +277,31 @@ public:
 
 int main(int argc, char *argv[])
 {
-    ::ProgramOptions programOptions;
+    std::filesystem::path iniFile;
     try
     {
-        programOptions = ::parseCommandLineOptions(argc, argv);
-        if (programOptions.helpOnly){return EXIT_SUCCESS;}
+        auto [iniFileName, isHelp] = ::parseCommandLineOptions(argc, argv);
+        if (isHelp){return EXIT_SUCCESS;}
+        iniFile = iniFileName;
     }
     catch (const std::exception &e)
     {
         spdlog::error(e.what());
         return EXIT_FAILURE;
     }
+
+    // Read the program properties
+    ::ProgramOptions programOptions;
+    try 
+    {   
+        programOptions = ::parseIniFile(iniFile);
+    }
+    catch (const std::exception &e)
+    {
+        spdlog::error(e.what());
+        return EXIT_FAILURE;
+    }   
+
     // Verbosity
     if (programOptions.verbosity <= 1){spdlog::set_level(spdlog::level::critical);}
     if (programOptions.verbosity == 2){spdlog::set_level(spdlog::level::warn);}
@@ -324,18 +342,42 @@ int main(int argc, char *argv[])
 }
 
 /// Parses the command line options
-::ProgramOptions parseCommandLineOptions(int argc, char *argv[])
+std::pair<std::string, bool> parseCommandLineOptions(int argc, char *argv[])
 {
-    ::ProgramOptions result;
+    std::string iniFile;
     boost::program_options::options_description desc(
 R"""(
 The dataPacketBroadcastProxy is middleware to which programs can forward 
 data from utilities like SEEDLink to a cluster data broadcast.
 
 Example usage:
-    dataPacketBroadcastProxy --frontend=tcp://127.0.0.1:5550 --backend=tcp://127.0.0.1:5551
+    dataPacketBroadcastProxy --ini=iniFile
 
 Allowed options)""");
+    desc.add_options()
+        ("help", "Produces this help message")
+        ("ini",  boost::program_options::value<std::string> (), 
+                 "The initialization file for this executable");
+    boost::program_options::variables_map vm; 
+    boost::program_options::store(
+        boost::program_options::parse_command_line(argc, argv, desc), vm); 
+    boost::program_options::notify(vm);
+    if (vm.count("help"))
+    {           
+        std::cout << desc << std::endl;
+        return {iniFile, true};
+    }   
+    if (vm.count("ini"))
+    {               
+        iniFile = vm["ini"].as<std::string>();
+        if (!std::filesystem::exists(iniFile))
+        {   
+            throw std::runtime_error("Initialization file: " + iniFile
+                                   + " does not exist");
+        }
+    }   
+    return {iniFile, false};
+/*
     desc.add_options()
         ("help",    "Produces this help message")
         ("frontend", boost::program_options::value<std::string> ()->default_value(FRONTEND_ADDRESS),
@@ -363,7 +405,7 @@ Allowed options)""");
         {
             address = "tcp://" + address;      
         }
-        result.frontendAddress = address;
+        result.proxyFrontendAddress = address;
     }   
     if (vm.count("backend"))
     {
@@ -376,13 +418,53 @@ Allowed options)""");
         {
             address = "tcp://" + address;
         }
-        result.backendAddress = address;
+        result.proxyBackendAddress = address;
     }
-    if (result.frontendAddress == result.backendAddress)
+    if (result.proxyFrontendAddress == result.proxyBackendAddress)
     {
-        throw std::runtime_error("Frontend address " + result.frontendAddress
+        throw std::runtime_error("Frontend address "
+                               + result.proxyFrontendAddress
                                + " cannot be the same as the backend address "
-                               + result.backendAddress);
+                               + result.proxyBackendAddress);
     }
     return result; 
+*/
+}
+
+::ProgramOptions parseIniFile(const std::filesystem::path &iniFile)
+{   
+    ::ProgramOptions options;
+    if (!std::filesystem::exists(iniFile)){return options;}
+    // Parse the initialization file
+    boost::property_tree::ptree propertyTree;
+    boost::property_tree::ini_parser::read_ini(iniFile, propertyTree);
+
+    // ZeroMQ
+    options.proxyFrontendAddress
+        = propertyTree.get<std::string> ("ZeroMQ.proxyFrontendAddress",
+                                         options.proxyFrontendAddress);
+    if (options.proxyFrontendAddress.empty())
+    {   
+        throw std::invalid_argument("ZeroMQ.proxyFrontendAddress is empty");
+    }   
+    if (!options.proxyFrontendAddress.starts_with("tcp://"))
+    {   
+        throw std::invalid_argument(
+            "ZeroMQ.proxyFrontendAddresss must starts with tcp://");
+    }   
+
+    options.proxyBackendAddress
+        = propertyTree.get<std::string> ("ZeroMQ.proxyBackendAddress",
+                                         options.proxyBackendAddress);
+    if (options.proxyBackendAddress.empty())
+    {
+        throw std::invalid_argument("ZeroMQ.proxyBackendAddress is empty");
+    }
+    if (!options.proxyBackendAddress.starts_with("tcp://"))
+    {
+        throw std::invalid_argument(
+            "ZeroMQ.proxyBackendAddresss must starts with tcp://");
+    }
+
+    return options;
 }

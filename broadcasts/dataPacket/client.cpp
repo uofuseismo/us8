@@ -15,7 +15,6 @@ public:
     std::function<void (US8::MessageFormats::Broadcasts::DataPacket &&packets)> mCallback;
 };
 
-
 IClient::IClient(
     const std::function<void (US8::MessageFormats::Broadcasts::DataPacket &&packet)> &callback) :
     pImpl(std::make_unique<IClientImpl> (callback))
