@@ -4,11 +4,12 @@
 FROM quay.io/uuss/us8base:latest as us8builder
 
 RUN cd /home/ubuntu &&\
-       git clone https://github.com/uofuseismo/us8.git &&\
-       cd us8 &&\
-       mkdir build &&\
-       cd build &&\
-       cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX=/usr/local/us8 &&\
-       make &&\
-       make install
+    git clone https://github.com/uofuseismo/us8.git &&\
+    cd us8 &&\
+    git pull &&\
+    mkdir build &&\
+    cd build &&\
+    cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX=/usr/local/us8 &&\
+    make &&\
+    make install
 
