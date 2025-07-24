@@ -28,18 +28,18 @@ namespace
 {
 std::atomic<bool> mInterrupted{false};
 }
-
-std::pair<std::string, bool> parseCommandLineOptions(int argc, char *argv[]);
+namespace USanitizer = US8::Broadcasts::DataPacket::Sanitizer;
 
 struct ProgramOptions
 {
-    std::string proxyBackendAddress{RAW_DATA_PACKET_BROADCAST_BACKEND_ADDRESS};
-    std::string proxyFrontendAddress{
+    std::string inputBroadcastAddress{
+        RAW_DATA_PACKET_BROADCAST_BACKEND_ADDRESS};
+    std::string outputBroadcastAddress{
         SANITIZED_DATA_PACKET_BROADCAST_FRONTEND_ADDRESS};
     std::chrono::milliseconds receiveTimeOut{10};
     std::chrono::milliseconds sendTimeOut{1000}; // 1s is enough
-    std::chrono::microseconds maxFutureTime{0};
-    std::chrono::seconds maxLatency{120};
+    std::chrono::milliseconds maximumFutureTime{0};
+    std::chrono::seconds maximumLatency{120};
     std::chrono::seconds circularBufferDuration{120};
     std::chrono::seconds logBadDataInterval{60};
     int receiveHighWaterMark{4096};
@@ -47,17 +47,37 @@ struct ProgramOptions
     int verbosity{3};
 };
 
+std::pair<std::string, bool> parseCommandLineOptions(int argc, char *argv[]);
+::ProgramOptions parseIniFile(const std::filesystem::path &iniFile);
+
 class Process
 {
 public:
-    explicit Process(const ::ProgramOptions &programOptions) :
-        mFutureDataPacketTester{programOptions.maxFutureTime,
-                                programOptions.logBadDataInterval},
-        mExpiredDataPacketTester{programOptions.maxLatency,
-                                 programOptions.logBadDataInterval},
-        mDuplicateDataPacketTester{programOptions.circularBufferDuration,
-                                   programOptions.logBadDataInterval}
+    explicit Process(const ::ProgramOptions &programOptions) 
     {
+        // Create the testers
+        if (programOptions.maximumFutureTime.count() >= 0)
+        {
+            mFutureDataPacketTester
+                = std::make_unique<USanitizer::TestFutureDataPacket>
+                  (programOptions.maximumFutureTime,
+                   programOptions.logBadDataInterval);
+        }
+        if (programOptions.maximumLatency.count() > 0)
+        {
+            mExpiredDataPacketTester
+                = std::make_unique<USanitizer::TestExpiredDataPacket>
+                  (programOptions.maximumLatency,
+                   programOptions.logBadDataInterval);
+        } 
+        if (programOptions.circularBufferDuration.count() > 0)
+        {
+            mDuplicateDataPacketTester
+                = std::make_unique<USanitizer::TestDuplicateDataPacket>
+                  (programOptions.circularBufferDuration,
+                   programOptions.logBadDataInterval); 
+        }
+
         // Set the message types
         US8::MessageFormats::Broadcasts::DataPacket packet;
         mMessageTypes.insert(packet.getMessageType());
@@ -72,8 +92,8 @@ public:
                 US8::MessageFormats::Broadcasts::DataPacket packet;
                 for (const auto &messageType : mMessageTypes)
                 {
-                     mSubscriberSocket.set(zmq::sockopt::subscribe,
-                                           messageType);
+                    mSubscriberSocket.set(zmq::sockopt::subscribe,
+                                          messageType);
                 }
             }
             auto timeOutMilliSeconds
@@ -83,14 +103,15 @@ public:
                 mSubscriberSocket.set(zmq::sockopt::rcvtimeo,
                                        timeOutMilliSeconds);
             }
-            spdlog::info("Connecting to proxy backend address "
-                       + programOptions.proxyBackendAddress);
-            mSubscriberSocket.connect(programOptions.proxyBackendAddress);
+            spdlog::info("Connecting to input proxy backend address "
+                       + programOptions.inputBroadcastAddress);
+            mSubscriberSocket.connect(programOptions.inputBroadcastAddress);
         }
         catch (const std::exception &e) 
         {
-            auto errorMessage = "Failed to initialize subscriber socket because "
-                              + std::string {e.what()};
+            auto errorMessage
+                = "Failed to initialize subscriber socket because "
+                + std::string {e.what()};
             throw std::runtime_error(errorMessage);
         }
         // Initialize ZMQ publisher
@@ -108,9 +129,9 @@ public:
                 mPublisherSocket.set(zmq::sockopt::sndtimeo,
                                      timeOutMilliSeconds);
             }
-            spdlog::info("Connecting to proxy frontend address "
-                       + programOptions.proxyFrontendAddress);
-            mPublisherSocket.connect(programOptions.proxyFrontendAddress);
+            spdlog::info("Connecting to output proxy frontend address "
+                       + programOptions.outputBroadcastAddress);
+            mPublisherSocket.connect(programOptions.outputBroadcastAddress);
         }
         catch (const std::exception &e) 
         {
@@ -237,14 +258,17 @@ public:
                 bool allow{false};
                 try
                 {
-                    allow = mFutureDataPacketTester.allow(packet);
-                    if (allow)
+                    if (mFutureDataPacketTester)
                     {
-                        allow = mExpiredDataPacketTester.allow(packet);
+                        allow = mFutureDataPacketTester->allow(packet);
                     }
-                    if (allow)
+                    if (allow && mExpiredDataPacketTester)
                     {
-                        allow = mDuplicateDataPacketTester.allow(packet);
+                        allow = mExpiredDataPacketTester->allow(packet);
+                    }
+                    if (allow && mDuplicateDataPacketTester)
+                    {
+                        allow = mDuplicateDataPacketTester->allow(packet);
                     }
                     if (allow)
                     {
@@ -428,18 +452,18 @@ public:
     zmq::context_t mPublisherContext{1};
     zmq::socket_t mSubscriberSocket{mPublisherContext, zmq::socket_type::sub};
     zmq::socket_t mPublisherSocket{mPublisherContext, zmq::socket_type::pub}; 
-    US8::Broadcasts::DataPacket::Sanitizer::TestFutureDataPacket
+    std::unique_ptr<USanitizer::TestFutureDataPacket>
         mFutureDataPacketTester;
-    US8::Broadcasts::DataPacket::Sanitizer::TestExpiredDataPacket
+    std::unique_ptr<USanitizer::TestExpiredDataPacket>
         mExpiredDataPacketTester;
-    US8::Broadcasts::DataPacket::Sanitizer::TestDuplicateDataPacket
+    std::unique_ptr<USanitizer::TestDuplicateDataPacket>
         mDuplicateDataPacketTester;
     moodycamel::ReaderWriterQueue<US8::MessageFormats::Broadcasts::DataPacket>
         mPacketsToCheckQueue{MAX_QUEUE_SIZE};
     moodycamel::ReaderWriterQueue<US8::MessageFormats::Broadcasts::DataPacket>
         mMessageToPublishQueue{MAX_QUEUE_SIZE};
     std::set<std::string> mMessageTypes;
-    std::chrono::seconds mLogPublishingPerformanceInterval{120};
+    std::chrono::seconds mLogPublishingPerformanceInterval{3600};
     std::atomic<bool> mKeepRunning{true};
     bool mStopRequested{false};
 };
@@ -469,7 +493,7 @@ int main(int argc, char *argv[])
     ::ProgramOptions programOptions;
     try
     {
-//        programOptions = parseIniFile(iniFile);
+        programOptions = parseIniFile(iniFile);
     }
     catch (const std::exception &e)
     {
@@ -548,3 +572,80 @@ Allowed options)""");
     return {iniFile, false};
 }
 
+::ProgramOptions parseIniFile(const std::filesystem::path &iniFile)
+{   
+    ::ProgramOptions options;
+    if (!std::filesystem::exists(iniFile)){return options;}
+    // Parse the initialization file
+    boost::property_tree::ptree propertyTree;
+    boost::property_tree::ini_parser::read_ini(iniFile, propertyTree);
+
+    // ZeroMQ
+    options.inputBroadcastAddress
+        = propertyTree.get<std::string> ("ZeroMQ.inputBroadcastAddress",
+                                         options.inputBroadcastAddress);
+    if (options.inputBroadcastAddress.empty())
+    {   
+        throw std::invalid_argument("ZeroMQ.inputBroadcastAddress is empty");
+    }   
+    if (!options.inputBroadcastAddress.starts_with("tcp://"))
+    {   
+        throw std::invalid_argument(
+            "ZeroMQ.inputBroadcastAddress must starts with tcp://");
+    }   
+
+    options.outputBroadcastAddress
+        = propertyTree.get<std::string> ("ZeroMQ.outputBroadcastAddress",
+                                         options.outputBroadcastAddress);
+    if (options.outputBroadcastAddress.empty())
+    {   
+        throw std::invalid_argument("ZeroMQ.outputBroadcastAddress is empty");
+    }   
+    if (!options.outputBroadcastAddress.starts_with("tcp://"))
+    {   
+        throw std::invalid_argument(
+            "ZeroMQ.outputBroadcastAddress must starts with tcp://");
+    }
+
+    // Max future time
+    auto maximumFutureTimeInMilliSeconds
+        = static_cast<int> (std::chrono::milliseconds
+                            {options.maximumFutureTime}.count());
+    maximumFutureTimeInMilliSeconds
+        = propertyTree.get<int> ("Sanitizer.maximumFutureTimeInMilliSeconds",
+                                 maximumFutureTimeInMilliSeconds);
+    options.maximumFutureTime
+        = std::chrono::milliseconds {maximumFutureTimeInMilliSeconds};
+
+    // Max latency
+    auto maximumLatencyInSeconds
+        = static_cast<int> (std::chrono::seconds
+                            {options.maximumLatency}.count());
+    maximumLatencyInSeconds
+        = propertyTree.get<int> ("Sanitizer.maximumLatencyInSeconds",
+                                 maximumLatencyInSeconds);
+    options.maximumLatency
+        = std::chrono::seconds {maximumLatencyInSeconds};
+
+    // Circular buffer duration
+    auto circularBufferDurationInSeconds
+        = static_cast<int> (std::chrono::seconds
+                            {options.circularBufferDuration}.count());
+    circularBufferDurationInSeconds
+        = propertyTree.get<int> ("Sanitizer.circularBufferDurationInSeconds",
+                                 circularBufferDurationInSeconds);
+    options.circularBufferDuration
+        = std::chrono::seconds {circularBufferDurationInSeconds};
+
+    // Logging interval
+    auto logBadDataIntervalInSeconds 
+        = static_cast<int> (std::chrono::seconds
+                            {options.logBadDataInterval}.count());
+    logBadDataIntervalInSeconds
+        = propertyTree.get<int> ("Sanitizer.logBadDataIntervalInSeconds",
+                                 logBadDataIntervalInSeconds);
+    options.logBadDataInterval
+        = std::chrono::seconds {logBadDataIntervalInSeconds};
+
+    return options;
+}
