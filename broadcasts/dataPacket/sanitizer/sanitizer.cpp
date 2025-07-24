@@ -58,6 +58,7 @@ public:
         // Create the testers
         if (programOptions.maximumFutureTime.count() >= 0)
         {
+            spdlog::info("Will test for future data");
             mFutureDataPacketTester
                 = std::make_unique<USanitizer::TestFutureDataPacket>
                   (programOptions.maximumFutureTime,
@@ -65,6 +66,9 @@ public:
         }
         if (programOptions.maximumLatency.count() > 0)
         {
+            spdlog::info("Will test for latent data older than "
+                       + std::to_string(programOptions.maximumLatency.count())
+                       + " seconds");
             mExpiredDataPacketTester
                 = std::make_unique<USanitizer::TestExpiredDataPacket>
                   (programOptions.maximumLatency,
@@ -72,6 +76,7 @@ public:
         } 
         if (programOptions.circularBufferDuration.count() > 0)
         {
+            spdlog::info("Will test for duplicate data");
             mDuplicateDataPacketTester
                 = std::make_unique<USanitizer::TestDuplicateDataPacket>
                   (programOptions.circularBufferDuration,
