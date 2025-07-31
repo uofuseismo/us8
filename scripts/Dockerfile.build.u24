@@ -3,7 +3,8 @@
 
 FROM quay.io/uuss/us8base:latest as us8builder
 
-RUN cd /home/ubuntu &&\
+RUN echo "hey" &&\
+    cd /home/ubuntu &&\
     if [ -d us8 ]; then rm -rf us8; fi &&\
     if [ -d /usr/local/us8 ]; then rm -f /usr/local/us8; fi &&\
     git clone https://github.com/uofuseismo/us8.git &&\

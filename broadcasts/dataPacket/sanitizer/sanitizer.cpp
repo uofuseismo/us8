@@ -277,7 +277,7 @@ public:
                     }
                     if (allow)
                     {
-                        mMessageToPublishQueue.try_enqueue(std::move(packet));
+                        mMessagesToPublishQueue.try_enqueue(std::move(packet));
                     }
                     nCheckedPackets = nCheckedPackets + 1;
                 }
@@ -326,19 +326,19 @@ public:
         int64_t nNotSentPackets{0};
         while (mKeepRunning)
         {
-            if (mMessageToPublishQueue.size_approx() > MAX_QUEUE_SIZE)
+            if (mMessagesToPublishQueue.size_approx() > MAX_QUEUE_SIZE)
             {
                 int nDeleted{0};
-                while (mMessageToPublishQueue.size_approx() > MAX_QUEUE_SIZE)
+                while (mMessagesToPublishQueue.size_approx() > MAX_QUEUE_SIZE)
                 {
-                    if (!mMessageToPublishQueue.pop()){break;}
+                    if (!mMessagesToPublishQueue.pop()){break;}
                     nDeleted = nDeleted + 1;
                 }
                 spdlog::warn("Overfull publisher queue - deleted "
                            + std::to_string(nDeleted) + " packets");
                 nNotSentPackets = nNotSentPackets + nDeleted;
             }
-            auto packet = mMessageToPublishQueue.peek();
+            auto packet = mMessagesToPublishQueue.peek();
             if (packet)
             {
                 std::string messageType;
@@ -357,7 +357,7 @@ public:
                     spdlog::warn("Failed to serialize output message because "
                                + std::string {e.what()});
                 }
-                if (!mMessageToPublishQueue.pop())
+                if (!mMessagesToPublishQueue.pop())
                 {
                     spdlog::warn("Publisher queue appears to be empty");
                 }
@@ -474,7 +474,7 @@ public:
     moodycamel::ReaderWriterQueue<US8::MessageFormats::Broadcasts::DataPacket>
         mPacketsToCheckQueue{MAX_QUEUE_SIZE};
     moodycamel::ReaderWriterQueue<US8::MessageFormats::Broadcasts::DataPacket>
-        mMessageToPublishQueue{MAX_QUEUE_SIZE};
+        mMessagesToPublishQueue{MAX_QUEUE_SIZE};
     std::set<std::string> mMessageTypes;
     std::chrono::seconds mLogPublishingPerformanceInterval{3600};
     std::atomic<bool> mKeepRunning{true};
