@@ -23,14 +23,12 @@ public:
         Administrator = 1 /*!< An extremely privileged client. */
     };
 public:
-    /// @result OK indicates the given IP address is blacklisted and should
-    ///         be denied access.
     /// @throws An exeption of forbidden if the IP is not allowed.
-    [[nodiscard]] virtual std::string isBlackListed(const std::string &address) const = 0;
+    virtual void blackListed(const std::string &address) const = 0;
     /// @result OK indicates the given IP address is whitelisted and should
     ///         be allowed access.
     /// @throws An exeption of forbidden if the IP is not allowed.
-    [[nodiscard]] virtual std::string isWhiteListed(const std::string &address) const = 0;
+    virtual void whiteListed(const std::string &address) const = 0;
     /// @result The minimum user privileges for this authenticator.
     //[[nodiscard]] virtual Privileges getMinimumUserPrivileges() const noexcept = 0;
     /// @brief Determines if the user presenting the given username and

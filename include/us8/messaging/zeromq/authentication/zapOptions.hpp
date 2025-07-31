@@ -6,7 +6,7 @@ namespace zmq
 {
   class socket_t;
 }
-namespace US8::Messaging::Authentication::Certificate
+namespace US8::Messaging::Authentication::Credential
 {
  class UserNameAndPassword;
  class KeyPair;
@@ -120,7 +120,58 @@ private:
     std::unique_ptr<StrawhouseServerImpl> pImpl;
 };
 
+class StonehouseClient final : public IZAPOptions
+{
+public:
+    StonehouseClient(const US8::Messaging::Authentication::Credential::KeyPair &clientKeyPair,
+                     const US8::Messaging::Authentication::Credential::KeyPair &serverPublicKey);
+    StonehouseClient(const StonehouseClient &client);
+    StonehouseClient(StonehouseClient &&client) noexcept;
+    /// @result Set the socket options.
+    void setSocketOptions(zmq::socket_t *socket) const final;
+    /// @result Stonehouse.
+    [[nodiscard]] Protocol getProtocol() const noexcept override final;
+    /// @result False.
+    [[nodiscard]] bool isAuthenticationServer() const noexcept override final;
+    /// @result The authentication domain.
+    [[nodiscard]] std::string getDomain() const noexcept;
+    /// @brief Destructor.
+    ~StonehouseClient() final;
+    /// @brief Copy assignment.
+    StonehouseClient& operator=(const StonehouseClient &client);
+    /// @brief Move assignemnt.
+    StonehouseClient& operator=(StonehouseClient &&client) noexcept;
+    StonehouseClient() = delete;
+private:
+    class StonehouseClientImpl;
+    std::unique_ptr<StonehouseClientImpl> pImpl;
+};
 
+class StonehouseServer final : public IZAPOptions
+{
+public:
+    explicit StonehouseServer(const US8::Messaging::Authentication::Credential::KeyPair &serverKeyPair);
+    StonehouseServer(const StonehouseServer &server);
+    StonehouseServer(StonehouseServer &&server) noexcept;
+    /// @result Set the socket options.
+    void setSocketOptions(zmq::socket_t *socket) const final;
+    /// @result Stonehouse.
+    [[nodiscard]] Protocol getProtocol() const noexcept override final;
+    /// @result True.
+    [[nodiscard]] bool isAuthenticationServer() const noexcept override final;
+    /// @result The authentication domain.
+    [[nodiscard]] std::string getDomain() const noexcept;
+    /// @brief Destructor.
+    ~StonehouseServer() final;
+    /// @brief Copy assignment.
+    StonehouseServer& operator=(const StonehouseServer &server);
+    /// @brief Move assignemnt.
+    StonehouseServer& operator=(StonehouseServer &&server) noexcept;
+    StonehouseServer() = delete;
+private:
+    class StonehouseServerImpl;
+    std::unique_ptr<StonehouseServerImpl> pImpl;
+};
 
 /// @class ZAPOptions "zapOptions.hpp" "us8/messaging/authentication/zeromq/zapOptions.hpp"
 /// @brief Defines options for using the ZeroMQ Authentication Protocol options.

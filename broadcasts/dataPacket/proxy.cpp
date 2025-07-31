@@ -54,7 +54,9 @@ public:
             US8::Messaging::ZeroMQ::Authentication::Grasslands authenticator;
             US8::Messaging::ZeroMQ::Authentication::GrasslandsServer grasslandsServer;
             grasslandsServer.setSocketOptions(&mFrontendSocket); 
-            mFrontendAuthenticator = std::make_unique<US8::Messaging::ZeroMQ::Authentication::Service> (mFrontendContext, std::move(authenticator));
+            mFrontendAuthenticator
+                = std::make_unique<US8::Messaging::ZeroMQ::Authentication::Service>
+                  ("Frontend", mFrontendContext, std::move(authenticator));
             mFrontendSocket.bind(options.proxyFrontendAddress);
         }
         catch (const std::exception &e)
@@ -72,7 +74,9 @@ public:
             US8::Messaging::ZeroMQ::Authentication::Grasslands authenticator;
             US8::Messaging::ZeroMQ::Authentication::GrasslandsServer grasslandsServer;
             grasslandsServer.setSocketOptions(&mBackendSocket); 
-            mBackendAuthenticator = std::make_unique<US8::Messaging::ZeroMQ::Authentication::Service> (mBackendContext, std::move(authenticator));
+            mBackendAuthenticator
+                = std::make_unique<US8::Messaging::ZeroMQ::Authentication::Service>
+                  ("Backend", mBackendContext, std::move(authenticator));
             mBackendSocket.set(zmq::sockopt::linger, 0); // Drop pending messages
             mBackendSocket.bind(options.proxyBackendAddress);
         }

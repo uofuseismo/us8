@@ -12,6 +12,7 @@
 #include <zmq_addon.hpp>
 #include "us8/messaging/zeromq/authentication/service.hpp"
 #include "us8/messaging/authentication/credential/userNameAndPassword.hpp"
+#include "us8/messaging/authentication/credential/keyPair.hpp"
 #include "us8/messaging/authentication/exceptions.hpp"
 
 /// Magic place where ZMQ will send authentication requests to.
@@ -25,13 +26,21 @@ namespace UExcept = US8::Messaging::Authentication::Exceptions;
 class Service::ServiceImpl
 {
 public:
-    explicit ServiceImpl(std::shared_ptr<zmq::context_t> context) :
+    ServiceImpl(const std::string &name,
+                std::shared_ptr<zmq::context_t> context,
+                std::unique_ptr<US8::Messaging::Authentication::IAuthenticator> &&authenticator) :
+        mName(name),
         mContext(context),
-        mAuthenticator{std::make_unique<Grasslands> ()}
+        mAuthenticator(std::move(authenticator))
     {
         if (mContext == nullptr)
         {
             throw std::invalid_argument("Context cannot be null");
+        }
+        if (mAuthenticator == nullptr)
+        {
+            spdlog::warn(
+               "Authenticator is null - no authentication will be done");
         }
 
         makeEndPointName();
@@ -40,11 +49,19 @@ public:
         mAPIPipe
             = std::make_unique<zmq::socket_t>
               (*mContext, zmq::socket_type::pair);
-        mAPIPipe->set(zmq::sockopt::linger, 1); 
+        mAPIPipe->set(zmq::sockopt::linger, 1);
         mAPIPipe->bind(mEndPoint);
     }
-    ServiceImpl(std::shared_ptr<zmq::context_t> context,
+/*
+    explicit ServiceImpl(std::shared_ptr<zmq::context_t> context) :
+        ServiceImpl("", context, std::make_unique<Grasslands> ())
+    {
+    }
+*/
+    ServiceImpl(const std::string &name,
+                std::shared_ptr<zmq::context_t> context,
                 Grasslands &&grasslands) :
+        mName(name),
         mContext(context),
         mAuthenticator{std::make_unique<Grasslands> (std::move(grasslands))} 
     {
@@ -169,8 +186,8 @@ public:
                     {
                         try
                         {
-                            mAuthenticator->isWhiteListed(ipAddress);
-                            mAuthenticator->isBlackListed(ipAddress);
+                            mAuthenticator->whiteListed(ipAddress);
+                            mAuthenticator->blackListed(ipAddress);
                             if (mechanism == "PLAIN")
                             {
                                 auto user = messagesReceived.at(5).to_string();
@@ -186,16 +203,22 @@ public:
                             } 
                             else if (mechanism == "CURVE")
                             {
-                                if (messagesReceived.at(6).size() != 32)
+                                constexpr int keyExpectedLength{32};
+                                if (messagesReceived.at(6).size() !=
+                                    keyExpectedLength)
                                 {
                                     throw UExcept::BadRequest(
-                                       "Key must be length 32");
+                                       "Key must be length "
+                                     + std::to_string(keyExpectedLength));
                                 }
                                 auto keyPtr = reinterpret_cast<const uint8_t *>
                                               (messagesReceived.at(6).data());
 
-                                std::array<uint8_t, 32> publicKey{};
-
+                                std::vector<uint8_t>
+                                    publicKey(keyPtr,
+                                              keyPtr + keyExpectedLength);
+                                US8::Messaging::Authentication::Credential
+                                ::KeyPair key{publicKey};
                             }
                             else
                             {
@@ -206,8 +229,17 @@ public:
                                 }
                             }
                             // Made it this far without throwing - you're okay
-                            spdlog::info("Allowing connection from " + ipAddress
-                                       + " on domain " + domain);
+                            if (!mName.empty())
+                            {
+                                spdlog::info("Allowing connection from " + ipAddress
+                                           + " to " + mName
+                                           + " on domain " + domain);
+                            }
+                            else
+                            {
+                                spdlog::info("Allowing connection from " + ipAddress
+                                           + " on domain " + domain);
+                            }
                             statusCode = 200;
                             statusText = "OK";
                         }
@@ -248,7 +280,10 @@ public:
                     }
                     else
                     {
-                        spdlog::warn("No authenticator set - forbidding access to " + ipAddress);
+                        spdlog::warn("No authenticator set allowing access to "
+                                   + ipAddress);
+                        statusCode = 200;
+                        statusText = "OK";
                     }
                     // Format result.  The order is defined in:
                     // https://rfc.zeromq.org/spec/27/
@@ -294,6 +329,7 @@ public:
     std::shared_ptr<zmq::context_t> mContext{nullptr};
     std::unique_ptr<zmq::socket_t> mAPIPipe{nullptr};
     std::string mEndPoint;
+    std::string mName;
     std::atomic<bool> mAPIStarted{false};
     std::atomic<bool> mKeepRunning{true};
 };
@@ -301,7 +337,14 @@ public:
 /// Constructor
 Service::Service(std::shared_ptr<zmq::context_t> context,
                  Grasslands &&grasslands) :
-    pImpl(std::make_unique<ServiceImpl> (context, std::move(grasslands)))
+    pImpl(std::make_unique<ServiceImpl> ("", context, std::move(grasslands)))
+{
+}
+
+Service::Service(const std::string &name,
+                 std::shared_ptr<zmq::context_t> context,
+                 Grasslands &&grasslands) :
+    pImpl(std::make_unique<ServiceImpl> (name, context, std::move(grasslands)))
 {
 }
 

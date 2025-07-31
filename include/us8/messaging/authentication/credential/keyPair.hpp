@@ -1,6 +1,7 @@
 #ifndef US8_MESSAGING_AUTHENTICATION_CREDENTIAL_KEY_PAIR_HPP
 #define US8_MESSAGING_AUTHENTICATION_CREDENTIAL_KEY_PAIR_HPP
 #include <memory>
+#include <optional>
 #include <vector>
 namespace US8::Messaging::Authentication::Credential
 {
@@ -15,11 +16,14 @@ public:
     /// @name Constructors
     /// @{
 
-    /// @brief Constructor.
-    KeyPair();
     /// @brief Copy constructor.
     /// @param[in] keys  The certificate from which to initialize this class.
     KeyPair(const KeyPair &keys);
+    /// @brief Constructs a key from a public key only.
+    explicit KeyPair(const std::vector<uint8_t> &publicKey);
+    /// @brief Constructs a key from a public and private key.
+    KeyPair(const std::vector<uint8_t> &publicKey,
+            const std::vector<uint8_t> &privateKey);
     /// @brief Move constructor.
     /// @param[in,out] keys  The certificate from which to initialize
     ///                      this class.  On exit, keys's behavior
@@ -42,66 +46,15 @@ public:
     KeyPair& operator=(KeyPair &&keys) noexcept;
     /// @}
 
-    /// @name Keypair Creation
-    /// @{
-
-    /// @brief This will create a new public/private keypair.
-    /// @throws std::runtime_error if an algorithmic error occurred.
-    void create();
-    /// @}
-
     /// @name KeyPair
     /// @{
 
-    /// @brief Sets the binary public key.
-    /// @param[in] publicKey  The binary public key to set.
-    /// @throws std::runtime_error in the case of algorithmic failure.
-    void setPublicKey(const std::vector<uint8_t> &publicKey);
-    /// @brief Sets the human-readable public key.
-    /// @param[in] publicKeyText  The human-readable public key to set.
-    /// @throws std::runtime_error in the case of algorithmic failure.
-    void setPublicKey(const std::vector<char> &publicKeyText);
-    /// @result The public key in a binary format.
-    /// @throws std::runtime_error if \c havePublicKey() is false.
+    /// @result The public key.
+    /// @throws std::runtime_error if the public key is not.
     [[nodiscard]] std::vector<uint8_t> getPublicKey() const;
-    /// @result The public key in human readable format.
-    /// @throws std::runtime_error if \c havePublicKey() is false.
-    [[nodiscard]] std::vector<char> getPublicTextKey() const;
-    /// @result True indicates that the public key was set.
-    [[nodiscard]] bool havePublicKey() const noexcept;
 
-    /// @brief Sets the binary private key.
-    /// @param[in] privateKey  The binary private key to set.
-    /// @throws std::runtime_error in the case of algorithmic failure.
-    void setPrivateKey(const std::vector<uint8_t> &privateKey);
-    /// @brief Sets the human-readable private key.
-    /// @param[in] privateKeyText  The human-readable private key to set.
-    /// @throws std::runtime_error in the case of algorithmic failure.
-    void setPrivateKey(const std::vector<char> &privateKeyText);
-    /// @result The private key in a binary format.
-    /// @throws std::runtime_error if \c havePrivateKey() is false.
-    [[nodiscard]] std::vector<uint8_t> getPrivateKey() const;
-    /// @result The private key in human readable format.
-    /// @throws std::runtime_error if \c havePrivateKey() is false.
-    [[nodiscard]] std::vector<char> getPrivateTextKey() const;
-    /// @result True indicates that the private key was set.
-    [[nodiscard]] bool havePrivateKey() const noexcept;
-
-    /// @brief Sets the keypair from the binary public and private key.
-    /// @param[in] publicKey   The binary public key.
-    /// @param[in] privateKey  The binary private key.
-    /// @throws std::runtime_error in the case of algorithm failure.
-    void setPair(const std::vector<uint8_t> &publicKey,
-                 const std::vector<uint8_t> &privateKey);
-    /// @brief Sets the keypair from a human-readable public and private key.
-    /// @param[in] publicKeyText   The human readable public key.
-    /// @param[in] privateKeyText  The human readable private key.
-    /// @throws std::runtime_error in the case of algorithmic failure.
-    void setPair(const std::vector<char> &publicKeyText,
-                 const std::vector<char> &privateKeyText);
-    /// @result Convenience function that indicates the public and private key
-    ///         pair are set.
-    [[nodiscard]] bool haveKeyPair() const noexcept;
+    /// @result The private key - if it was set.
+    [[nodiscard]] std::optional<std::vector<uint8_t>> getPrivateKey() const noexcept;
     /// @}
 
     /// @name Metadata
@@ -144,6 +97,8 @@ public:
     /// @brief Destructor.
     ~KeyPair();
     /// @}
+
+    KeyPair() = delete;
 private:
     class KeyPairImpl;
     std::unique_ptr<KeyPairImpl> pImpl; 

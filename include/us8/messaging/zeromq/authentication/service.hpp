@@ -1,6 +1,7 @@
 #ifndef US8_MESSAGING_ZEROMQ_AUTHENTICATION_SERVICE_HPP
 #define US8_MESSAGING_ZEROMQ_AUTHENTICATION_SERVICE_HPP
 #include <us8/messaging/zeromq/authentication/grasslands.hpp>
+#include <us8/messaging/zeromq/authentication/stonehouse.hpp>
 #include <memory>
 namespace US8::Messaging::ZeroMQ::Authentication
 {
@@ -18,6 +19,19 @@ public:
     ///                        everything.  Note, the memory from grasslands
     ///                        is moved onto this context.
     Service(std::shared_ptr<zmq::context_t> context,
+            Grasslands &&grasslands);
+    /// @brief Constructs a Grasslands authenticator service with a given name.
+    /// @param[in] context     The context of the socket on which to set the
+    ///                        authentication.
+    //explicit Service(std::shared_ptr<zmq::context_t> context);
+    /// @brief Constructs a Grasslands authenticator service.
+    /// @param[in] context     The context of the socket on which to set the
+    ///                        authentication.
+    /// @param[in] grasslands  A grasslands authenticator which allows
+    ///                        everything.  Note, the memory from grasslands
+    ///                        is moved onto this context.
+    Service(const std::string &name,
+            std::shared_ptr<zmq::context_t> context,
             Grasslands &&grasslands);
 
     /// @brief Determines if the user presenting the given username and

@@ -33,7 +33,7 @@ struct ProgramOptions
     // -1 waits forever whereas 0 returns immediately.
     std::chrono::milliseconds sendTimeOut{1000}; // 1s is enough
     std::chrono::seconds oldestPacket{-1};
-    std::chrono::seconds badDataLoggingInterval{3600}; // Every hour
+    std::chrono::seconds logPublishingPerformanceInterval{600}; // Every 10 minutes 
     int sendHighWaterMark{4096};
     int verbosity{3};
     bool preventFuturePackets{true};
@@ -48,6 +48,8 @@ public:
     Process() = delete;
     explicit Process(const ProgramOptions &options)
     {
+        mLogPublishingPerformanceInterval
+            = options.logPublishingPerformanceInterval;
         // Initialize ZMQ publisher
         try
         {
@@ -115,9 +117,11 @@ public:
     {
         spdlog::info("Thread entering publisher");
         std::chrono::milliseconds sleepTime{5};
+        bool logPublishingPerformance
+            = mLogPublishingPerformanceInterval.count() > 0 ? true : false;
         auto nowMuSeconds
-           = std::chrono::time_point_cast<std::chrono::microseconds>
-             (std::chrono::high_resolution_clock::now()).time_since_epoch();
+            = std::chrono::time_point_cast<std::chrono::microseconds>
+              (std::chrono::high_resolution_clock::now()).time_since_epoch();
         auto lastLogTime
             = std::chrono::duration_cast<std::chrono::seconds> (nowMuSeconds);
         int64_t nSentPackets{0};
@@ -158,6 +162,10 @@ public:
                 }
                 try
                 {
+                    if (!messageType.empty())
+                    {
+                        throw std::runtime_error("Message type is empty");
+                    }
                     std::array<zmq::const_buffer, 2> messages{
                        zmq::const_buffer {messageType.data(),
                                           messageType.size()},
@@ -197,7 +205,8 @@ public:
             auto nowSeconds
                 = std::chrono::duration_cast<std::chrono::seconds>
                   (nowMuSeconds);
-            if (nowSeconds >= lastLogTime + mLogPublishingPerformanceInterval)
+            if (logPublishingPerformance &&
+                nowSeconds >= lastLogTime + mLogPublishingPerformanceInterval)
             {
                 spdlog::info("Sent " 
                     + std::to_string(nSentPackets)
@@ -304,7 +313,7 @@ public:
         std::bind(&::Process::addPacketsFromAcquisitionCallback, this,
                   std::placeholders::_1)
     };
-    std::chrono::seconds mLogPublishingPerformanceInterval{60};
+    std::chrono::seconds mLogPublishingPerformanceInterval{600};
     std::atomic<bool> mKeepRunning{true};
     bool mStopRequested{false};
 };
@@ -540,5 +549,15 @@ getSEEDLinkOptions(const boost::property_tree::ptree &propertyTree,
         options.seedLinkClientOptions 
              = ::getSEEDLinkOptions(propertyTree, "SEEDLink");
     }
+
+    auto logPublishingPerformanceIntervalInSeconds
+        = static_cast<int> (std::chrono::seconds
+                            {options.logPublishingPerformanceInterval}.count());
+    logPublishingPerformanceIntervalInSeconds
+        = propertyTree.get<int> (
+          "General.logPublishingPerformanceIntervalInSeconds",
+          logPublishingPerformanceIntervalInSeconds);
+    options.logPublishingPerformanceInterval
+        = std::chrono::seconds {logPublishingPerformanceIntervalInSeconds};
     return options;
 }

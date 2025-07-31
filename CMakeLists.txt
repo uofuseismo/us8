@@ -58,6 +58,7 @@ target_link_libraries(us8client
 set(MESSAGING_LIBRARY_SRC
     messaging/authentication/authenticator.cpp
     messaging/authentication/credential/userNameAndPassword.cpp
+    messaging/authentication/credential/keyPair.cpp
     messaging/zeromq/authentication/service.cpp
     messaging/zeromq/authentication/grasslands.cpp
     messaging/zeromq/authentication/zapOptions.cpp)

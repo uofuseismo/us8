@@ -345,6 +345,10 @@ public:
                 std::string messagePayload;
                 try
                 {
+                    if (!messageType.empty())
+                    {
+                        throw std::runtime_error("Message type is empty");
+                    }
                     messageType = packet->getMessageType();
                     messagePayload = packet->serialize();
                 }
@@ -359,6 +363,10 @@ public:
                 }
                 try
                 {
+                    if (!messageType.empty())
+                    {
+                        throw std::runtime_error("Message type is empty");
+                    }
                     std::array<zmq::const_buffer, 2> messages{
                        zmq::const_buffer {messageType.data(),
                                           messageType.size()},
