@@ -345,10 +345,6 @@ public:
                 std::string messagePayload;
                 try
                 {
-                    if (messageType.empty())
-                    {
-                        throw std::runtime_error("Message type is empty");
-                    }
                     messageType = packet->getMessageType();
                     messagePayload = packet->serialize();
                 }
@@ -363,7 +359,7 @@ public:
                 }
                 try
                 {
-                    if (!messageType.empty())
+                    if (messageType.empty())
                     {
                         throw std::runtime_error("Message type is empty");
                     }
