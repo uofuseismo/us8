@@ -162,7 +162,7 @@ public:
                 }
                 try
                 {
-                    if (!messageType.empty())
+                    if (messageType.empty())
                     {
                         throw std::runtime_error("Message type is empty");
                     }

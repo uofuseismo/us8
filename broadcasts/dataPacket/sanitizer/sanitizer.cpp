@@ -345,7 +345,7 @@ public:
                 std::string messagePayload;
                 try
                 {
-                    if (!messageType.empty())
+                    if (messageType.empty())
                     {
                         throw std::runtime_error("Message type is empty");
                     }
