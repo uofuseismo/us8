@@ -1,19 +1,23 @@
 #include <iostream>
+#include <csignal>
 #include <atomic>
 #include <string>
 #include <thread>
 #include <filesystem>
 #include <cerrno>
-#include <set>
 #include <spdlog/spdlog.h>
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include <readerwriterqueue.h>
-#include <zmq.hpp>
-#include <zmq_addon.hpp>
+//#include <zmq.hpp>
+//#include <zmq_addon.hpp>
 #include "us8/messageFormats/broadcasts/dataPacket.hpp"
+#include "us8/broadcasts/dataPacket/publisher.hpp"
+#include "us8/broadcasts/dataPacket/publisherOptions.hpp"
+#include "us8/broadcasts/dataPacket/subscriber.hpp"
+#include "us8/broadcasts/dataPacket/subscriberOptions.hpp"
 #include "testFutureDataPacket.hpp"
 #include "testExpiredDataPacket.hpp"
 #include "testDuplicateDataPacket.hpp"
@@ -82,34 +86,20 @@ public:
                    programOptions.logBadDataInterval); 
         }
 
-        // Set the message types
-        US8::MessageFormats::Broadcasts::DataPacket packet;
-        mMessageTypes.insert(packet.getMessageType());
-         
         // Initialize ZMQ subscriber
         try
         {
-            if (programOptions.receiveHighWaterMark >= 0)
-            {
-                mSubscriberSocket.set(zmq::sockopt::rcvhwm,
-                                      programOptions.receiveHighWaterMark);
-                US8::MessageFormats::Broadcasts::DataPacket packet;
-                for (const auto &messageType : mMessageTypes)
-                {
-                    mSubscriberSocket.set(zmq::sockopt::subscribe,
-                                          messageType);
-                }
-            }
-            auto timeOutMilliSeconds
-                = static_cast<int> (programOptions.receiveTimeOut.count());
-            if (timeOutMilliSeconds >= 0)
-            {
-                mSubscriberSocket.set(zmq::sockopt::rcvtimeo,
-                                       timeOutMilliSeconds);
-            }
-            spdlog::info("Connecting to input proxy backend address "
-                       + programOptions.inputBroadcastAddress);
-            mSubscriberSocket.connect(programOptions.inputBroadcastAddress);
+            US8::Broadcasts::DataPacket::SubscriberOptions subscriberOptions{
+                programOptions.inputBroadcastAddress,
+                mReceivePacketCallback};
+            subscriberOptions.setHighWaterMark(
+                programOptions.receiveHighWaterMark);
+            subscriberOptions.setTimeOut(
+                programOptions.receiveTimeOut);
+    
+            mPacketSubscriber
+                = std::make_unique<US8::Broadcasts::DataPacket::Subscriber>
+                  (subscriberOptions);
         }
         catch (const std::exception &e) 
         {
@@ -121,25 +111,20 @@ public:
         // Initialize ZMQ publisher
         try
         {
-            if (programOptions.sendHighWaterMark >= 0)
-            {
-                mPublisherSocket.set(zmq::sockopt::sndhwm,
-                                     programOptions.sendHighWaterMark);
-            }
-            auto timeOutMilliSeconds
-                = static_cast<int> (programOptions.sendTimeOut.count());
-            if (timeOutMilliSeconds >= 0)
-            {   
-                mPublisherSocket.set(zmq::sockopt::sndtimeo,
-                                     timeOutMilliSeconds);
-            }
-            spdlog::info("Connecting to output proxy frontend address "
-                       + programOptions.outputBroadcastAddress);
-            mPublisherSocket.connect(programOptions.outputBroadcastAddress);
+            US8::Broadcasts::DataPacket::PublisherOptions publisherOptions{
+                programOptions.outputBroadcastAddress};
+            publisherOptions.setHighWaterMark(
+                programOptions.sendHighWaterMark);
+            publisherOptions.setTimeOut(
+                programOptions.sendTimeOut);
+    
+            mPacketPublisher
+                = std::make_unique<US8::Broadcasts::DataPacket::Publisher>
+                  (publisherOptions);
         }
         catch (const std::exception &e) 
         {
-            auto errorMessage = "Failed to initialize publisher socket because "
+            auto errorMessage = "Failed to initialize publisher because "
                               + std::string {e.what()};
             throw std::runtime_error(errorMessage);
         }
@@ -147,88 +132,30 @@ public:
     /// Starts the threads
     void start()
     {
+#ifndef NDEBUG
+        assert(mPacketSubscriber != nullptr);
+#endif
         stop();
         mKeepRunning = true;
         mPublisherThread = std::thread(&::Process::publishGoodPackets, this);
         mTesterThread = std::thread(&::Process::checkPackets, this);
-        mSubscriberThread = std::thread(&::Process::getInputPackets, this);
+        //mSubscriberThread = std::thread(&::Process::getInputPackets, this);
+        mPacketSubscriber->start();
     }
     /// Stops the threads
     void stop()
     {   
         mKeepRunning = false; 
-        if (mSubscriberThread.joinable()){mSubscriberThread.join();}
+        if (mPacketSubscriber){mPacketSubscriber->stop();}
+        //if (mSubscriberThread.joinable()){mSubscriberThread.join();}
         if (mTesterThread.joinable()){mTesterThread.join();}
         if (mPublisherThread.joinable()){mPublisherThread.join();}
     }   
-    /// Reads the packets from the wire to test
-    void getInputPackets()
+    /// Callback for the packet subscriber
+    void inputPacketsToQueueCallback(
+        US8::MessageFormats::Broadcasts::DataPacket &&dataPacket)
     {
-        spdlog::debug("Thread entering getInputPackets");
-        auto nowMuSeconds
-           = std::chrono::time_point_cast<std::chrono::microseconds>
-             (std::chrono::high_resolution_clock::now()).time_since_epoch();
-        auto lastLogTime
-            = std::chrono::duration_cast<std::chrono::seconds> (nowMuSeconds);
-        int64_t nReceivedMessages{0};
-        int64_t nNotPropagatedMessages{0};
-        while (mKeepRunning)
-        {
-            zmq::multipart_t messagesReceived(mSubscriberSocket);
-            if (messagesReceived.empty()){continue;}
-            nReceivedMessages = nReceivedMessages + 1;
-#ifndef NDEBUG
-            assert(static_cast<int> (messagesReceived.size()) == 2); 
-#else
-            if (static_cast<int> (messagesReceived.size()) != 2)
-            {   
-                spdlog::warn("Only 2-part messages handled");
-                nNotPropagatedMessages = nNotPropagatedMessages + 1; 
-                continue;
-            }
-#endif
-            try
-            {
-                auto messageType = messagesReceived.at(0).to_string();
-                if (!mMessageTypes.contains(messageType))
-                {
-                    spdlog::warn("Unhandled message type " + messageType);
-                    continue;
-                }
-                const auto payload
-                    = static_cast<char *> (messagesReceived.at(1).data());
-                const auto messageSize
-                    = static_cast<size_t> (messagesReceived.at(1).size());
-                US8::MessageFormats::Broadcasts::DataPacket
-                    dataPacket{payload, messageSize};
-                mPacketsToCheckQueue.try_enqueue(std::move(dataPacket));
-            }
-            catch (const std::exception &e)
-            {
-                spdlog::warn("Failed getting from wire to queue because "
-                           + std::string {e.what()});      
-                nNotPropagatedMessages = nNotPropagatedMessages + 1;
-            }   
-            nowMuSeconds
-                = std::chrono::time_point_cast<std::chrono::microseconds>
-                 (std::chrono::high_resolution_clock::now()).time_since_epoch();
-            auto nowSeconds
-                = std::chrono::duration_cast<std::chrono::seconds>
-                  (nowMuSeconds);
-            if (nowSeconds >= lastLogTime + mLogPublishingPerformanceInterval)
-            {
-                spdlog::info("Received "
-                    + std::to_string(nReceivedMessages)
-                    + " messages in last "
-                    + std::to_string(mLogPublishingPerformanceInterval.count())
-                    + " seconds. (Did not propagate "
-                    + std::to_string(nNotPropagatedMessages) + " messages.)");
-                nReceivedMessages = 0;
-                nNotPropagatedMessages = 0;
-                lastLogTime = nowSeconds;
-            }
-        } 
-        spdlog::debug("Thread leaving getInputPackets");
+        mPacketsToCheckQueue.try_enqueue(std::move(dataPacket));
     }
     /// Checks the packets
     void checkPackets()
@@ -314,6 +241,9 @@ public:
     /// Publishes the good packets
     void publishGoodPackets()
     {
+#ifndef NDEBUG
+        assert(mPacketPublisher != nullptr);
+#endif
         spdlog::debug("Thread entering publishGoodPackets");
         constexpr std::chrono::milliseconds sleepTime{5};
         auto nowMuSeconds
@@ -340,6 +270,22 @@ public:
             auto packet = mMessagesToPublishQueue.peek();
             if (packet)
             {
+                try
+                {
+                    mPacketPublisher->send(*packet);
+                    nSentPackets = nSentPackets + 1;
+                }
+                catch (const std::exception &e) 
+                {
+                    spdlog::warn("Failed to send message because "
+                               + std::string {e.what()});
+                     nNotSentPackets = nNotSentPackets + 1;
+                }
+                if (!mMessagesToPublishQueue.pop())
+                {
+                    spdlog::warn("Publisher queue appears to be empty");
+                }
+/*
                 std::string messageType;
                 std::string messagePayload;
                 try
@@ -383,6 +329,7 @@ public:
                                + std::string {e.what()});
                     nNotSentPackets = nNotSentPackets + 1;
                 }
+*/
             }
             else
             {   
@@ -453,13 +400,25 @@ public:
     Process(const Process &) = delete;
     Process& operator=(const Process &) = delete;
 ///private:
-    std::thread mSubscriberThread;
+    //std::thread mSubscriberThread;
     std::thread mTesterThread;
     std::thread mPublisherThread;
+    std::unique_ptr<US8::Broadcasts::DataPacket::Subscriber>
+        mPacketSubscriber{nullptr};
+    std::unique_ptr<US8::Broadcasts::DataPacket::Publisher>
+        mPacketPublisher{nullptr};
+    std::function<void(US8::MessageFormats::Broadcasts::DataPacket &&packet)>
+        mReceivePacketCallback
+    {
+        std::bind(&::Process::inputPacketsToQueueCallback, this,
+                  std::placeholders::_1)
+    };
+/*
     zmq::context_t mSubscriberContext{1};
     zmq::context_t mPublisherContext{1};
-    zmq::socket_t mSubscriberSocket{mPublisherContext, zmq::socket_type::sub};
+    zmq::socket_t mSubscriberSocket{mSubscriberContext, zmq::socket_type::sub};
     zmq::socket_t mPublisherSocket{mPublisherContext, zmq::socket_type::pub}; 
+*/
     std::unique_ptr<USanitizer::TestFutureDataPacket>
         mFutureDataPacketTester;
     std::unique_ptr<USanitizer::TestExpiredDataPacket>
@@ -470,7 +429,6 @@ public:
         mPacketsToCheckQueue{MAX_QUEUE_SIZE};
     moodycamel::ReaderWriterQueue<US8::MessageFormats::Broadcasts::DataPacket>
         mMessagesToPublishQueue{MAX_QUEUE_SIZE};
-    std::set<std::string> mMessageTypes;
     std::chrono::seconds mLogPublishingPerformanceInterval{3600};
     std::atomic<bool> mKeepRunning{true};
     bool mStopRequested{false};

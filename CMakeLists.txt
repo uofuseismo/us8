@@ -32,7 +32,11 @@ set(BINARIES "")
 set(CLIENT_LIBRARY_SRC 
     version.cpp
     messageFormats/message.cpp
-    messageFormats/broadcasts/dataPacket.cpp) 
+    messageFormats/broadcasts/dataPacket.cpp
+    broadcasts/dataPacket/publisher.cpp
+    broadcasts/dataPacket/publisherOptions.cpp
+    broadcasts/dataPacket/subscriberOptions.cpp
+    broadcasts/dataPacket/subscriber.cpp) 
 configure_file(${CMAKE_SOURCE_DIR}/version.hpp.in
                ${CMAKE_SOURCE_DIR}/include/us8/version.hpp)
 add_library(us8client ${CLIENT_LIBRARY_SRC})
@@ -53,7 +57,7 @@ target_include_directories(us8client
                            PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
                            PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
 target_link_libraries(us8client
-                      PRIVATE nlohmann_json::nlohmann_json spdlog::spdlog)
+                      PRIVATE cppzmq-static nlohmann_json::nlohmann_json spdlog::spdlog)
 
 set(MESSAGING_LIBRARY_SRC
     messaging/authentication/authenticator.cpp
@@ -112,7 +116,7 @@ target_include_directories(dataPacketSanitizer
                            PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
 target_link_libraries(dataPacketSanitizer
                       PRIVATE us8messaging us8client spdlog::spdlog Boost::program_options
-                              readerwriterqueue cppzmq-static Threads::Threads)
+                              readerwriterqueue Threads::Threads)
 list(APPEND BINARIES dataPacketSanitizer)
 
 
@@ -134,7 +138,7 @@ if (${SEEDLink_FOUND} AND ${MiniSEED_FOUND})
                               PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
    target_link_libraries(seedLinkDataPacketBroadcastPublisher
                          PRIVATE us8client us8messaging spdlog::spdlog Boost::program_options
-                                 cppzmq-static ${SEEDLINK_LIBRARY} ${MINISEED_LIBRARY}
+                                 ${SEEDLINK_LIBRARY} ${MINISEED_LIBRARY}
                                  readerwriterqueue Threads::Threads)
    list(APPEND BINARIES seedLinkDataPacketBroadcastPublisher)
 endif()

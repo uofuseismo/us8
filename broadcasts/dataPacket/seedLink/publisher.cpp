@@ -1,10 +1,9 @@
 #include <iostream>
 #include <chrono>
+#include <csignal>
 #include <spdlog/spdlog.h>
 #include <thread>
 #include <filesystem>
-#include <zmq.hpp>
-#include <zmq_addon.hpp>
 #include <cerrno>
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
@@ -14,6 +13,8 @@
 #include "client.hpp"
 #include "clientOptions.hpp"
 #include "streamSelector.hpp"
+#include "us8/broadcasts/dataPacket/publisher.hpp"
+#include "us8/broadcasts/dataPacket/publisherOptions.hpp"
 #include "us8/messageFormats/broadcasts/dataPacket.hpp"
 
 #define PROXY_FRONTEND_ADDRESS "tcp://127.0.0.1:5550"
@@ -53,21 +54,14 @@ public:
         // Initialize ZMQ publisher
         try
         {
-            if (options.sendHighWaterMark >= 0)
-            {
-                mPublisherSocket.set(zmq::sockopt::sndhwm,
-                                     options.sendHighWaterMark);
-            }
-            auto timeOutMilliSeconds
-                = static_cast<int> (options.sendTimeOut.count());
-            if (timeOutMilliSeconds >= 0)
-            {
-                mPublisherSocket.set(zmq::sockopt::sndtimeo,
-                                     timeOutMilliSeconds);
-            }
-            spdlog::info("Connecting to proxy frontend address "
-                       + options.proxyFrontendAddress);
-            mPublisherSocket.connect(options.proxyFrontendAddress);
+            US8::Broadcasts::DataPacket::PublisherOptions publisherOptions{
+                options.proxyFrontendAddress};
+            publisherOptions.setHighWaterMark(options.sendHighWaterMark);
+            publisherOptions.setTimeOut(options.sendTimeOut);
+            
+            mPacketPublisher
+                = std::make_unique<US8::Broadcasts::DataPacket::Publisher>
+                  (publisherOptions);
         }
         catch (const std::exception &e)
         {
@@ -115,6 +109,9 @@ public:
     /// Sends packets to the proxy via ZeroMQ
     void sendPacketsViaZeroMQ()
     {
+#ifndef NDEBUG
+        assert(mPacketPublisher != nullptr);
+#endif
         spdlog::info("Thread entering publisher");
         std::chrono::milliseconds sleepTime{5};
         bool logPublishingPerformance
@@ -144,61 +141,24 @@ public:
             auto packet = mQueue.peek();
             if (packet)
             {
-                std::string messageType;
-                std::string messagePayload;
                 try
                 {
-                    messageType = packet->getMessageType();
-                    messagePayload = packet->serialize();
-                }
-                catch (const std::exception &e)
-                {
-                    spdlog::warn("Failed to serialize message because "
-                               + std::string {e.what()});
-                }
-                if (!mQueue.pop())
-                {
-                    spdlog::warn("Queue appears to be empty");
-                }
-                try
-                {
-                    if (messageType.empty())
-                    {
-                        throw std::runtime_error("Message type is empty");
-                    }
-                    std::array<zmq::const_buffer, 2> messages{
-                       zmq::const_buffer {messageType.data(),
-                                          messageType.size()},
-                       zmq::const_buffer {messagePayload.data(),
-                                          messagePayload.size()}
-                    };
-                    auto nPartsSent
-                        = zmq::send_multipart(mPublisherSocket, messages);
-                    if (nPartsSent != 2)
-                    {
-                        throw std::runtime_error(
-                            "Failed to send two-part message");
-                    }
+                    mPacketPublisher->send(*packet);
                     nSentPackets = nSentPackets + 1;
                 }
-                catch (const std::exception &e)
-                {
+                catch (const std::exception &e) 
+                {   
                     spdlog::warn("Failed to send message because "
                                + std::string {e.what()});
-                    nNotSentPackets = nNotSentPackets + 1;
-                }
+                     nNotSentPackets = nNotSentPackets + 1;
+                }   
+                if (!mQueue.pop()){spdlog::warn("Queue appears to be empty");}
             }
             else
             {
                 std::this_thread::sleep_for(sleepTime);
             }
 
-            /*
-            auto now = std::chrono::high_resolution_clock::now(); 
-            auto nowMuSeconds
-                = std::chrono::time_point_cast<std::chrono::microseconds>
-                  (now).time_since_epoch();
-            */
             nowMuSeconds
                 = std::chrono::time_point_cast<std::chrono::microseconds>
                  (std::chrono::high_resolution_clock::now()).time_since_epoch();
@@ -301,8 +261,8 @@ public:
 ///private:
     std::thread mAcquisitionThread;
     std::thread mPublisherThread;
-    zmq::context_t mPublisherContext{1};
-    zmq::socket_t mPublisherSocket{mPublisherContext, zmq::socket_type::pub}; 
+    std::unique_ptr<US8::Broadcasts::DataPacket::Publisher>
+        mPacketPublisher{nullptr};
     moodycamel::ReaderWriterQueue<US8::MessageFormats::Broadcasts::DataPacket>
         mQueue{MAX_QUEUE_SIZE};
     std::unique_ptr<US8::Broadcasts::DataPacket::SEEDLink::Client>
