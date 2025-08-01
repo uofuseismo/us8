@@ -1,13 +1,13 @@
 #include <spdlog/spdlog.h>
-#include "us8/broadcasts/dataPacket/client.hpp"
+#include "us8/broadcasts/dataPacket/importClient.hpp"
 #include "us8/messageFormats/broadcasts/dataPacket.hpp"
 
 using namespace US8::Broadcasts::DataPacket;
 
-class IClient::IClientImpl
+class IImportClient::IImportClientImpl
 {
 public:
-    explicit IClientImpl(
+    explicit IImportClientImpl(
         const std::function<void (US8::MessageFormats::Broadcasts::DataPacket &&packet)> &callback) :
         mCallback(callback)
     {
@@ -15,16 +15,16 @@ public:
     std::function<void (US8::MessageFormats::Broadcasts::DataPacket &&packets)> mCallback;
 };
 
-IClient::IClient(
+IImportClient::IImportClient(
     const std::function<void (US8::MessageFormats::Broadcasts::DataPacket &&packet)> &callback) :
-    pImpl(std::make_unique<IClientImpl> (callback))
+    pImpl(std::make_unique<IImportClientImpl> (callback))
 {
 }
 
-IClient::~IClient() = default;
+IImportClient::~IImportClient() = default;
 
 /// Applies the callback
-void IClient::operator()(
+void IImportClient::operator()(
     std::vector<US8::MessageFormats::Broadcasts::DataPacket> &&packets)
 {
     for (auto &packet : packets)
@@ -34,7 +34,8 @@ void IClient::operator()(
 }
 
 /// Applies the callback to a packet
-void IClient::operator()(US8::MessageFormats::Broadcasts::DataPacket &&packet)
+void IImportClient::operator()
+   (US8::MessageFormats::Broadcasts::DataPacket &&packet)
 {
    pImpl->mCallback(std::move(packet));
 }

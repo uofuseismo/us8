@@ -118,7 +118,7 @@ list(APPEND BINARIES dataPacketSanitizer)
 
 if (${SEEDLink_FOUND} AND ${MiniSEED_FOUND})
    add_executable(seedLinkDataPacketBroadcastPublisher
-                  broadcasts/dataPacket/client.cpp
+                  broadcasts/dataPacket/importClient.cpp
                   broadcasts/dataPacket/seedLink/publisher.cpp
                   broadcasts/dataPacket/seedLink/streamSelector.cpp
                   broadcasts/dataPacket/seedLink/clientOptions.cpp

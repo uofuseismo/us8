@@ -1,6 +1,6 @@
 #ifndef US8_DATA_CLIENT_DATA_PACKET_SEED_LINK_HPP
 #define US8_DATA_CLIENT_DATA_PACKET_SEED_LINK_HPP
-#include <us8/broadcasts/dataPacket/client.hpp>
+#include <us8/broadcasts/dataPacket/importClient.hpp>
 namespace US8::MessageFormats::Broadcasts
 {
  class DataPacket;
@@ -11,7 +11,7 @@ namespace US8::Broadcasts::DataPacket::SEEDLink
 }
 namespace US8::Broadcasts::DataPacket::SEEDLink
 {
-class Client : public US8::Broadcasts::DataPacket::IClient
+class Client : public US8::Broadcasts::DataPacket::IImportClient
 {
 public:
     Client() = delete;
@@ -23,7 +23,7 @@ public:
     void stop() final;
     [[nodiscard]] bool isInitialized() const noexcept final;
     [[nodiscard]] bool isConnected() const noexcept final;
-    [[nodiscard]] US8::Broadcasts::DataPacket::IClient::Type getType() const noexcept final;
+    [[nodiscard]] US8::Broadcasts::DataPacket::IImportClient::Type getType() const noexcept final;
 private:
     class ClientImpl;
     std::unique_ptr<ClientImpl> pImpl;

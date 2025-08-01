@@ -1,5 +1,5 @@
-#ifndef US8_BROADCASTS_DATA_PACKET_CLIENT_HPP
-#define US8_BROADCASTS_DATA_PACKET_CLIENT_HPP
+#ifndef US8_BROADCASTS_DATA_PACKET_IMPORT_CLIENT_HPP
+#define US8_BROADCASTS_DATA_PACKET_IMPORT_CLIENT_HPP
 #include <functional>
 #include <memory>
 #include <vector>
@@ -9,7 +9,7 @@ namespace US8::MessageFormats::Broadcasts
 }
 namespace US8::Broadcasts::DataPacket
 {
-class IClient
+class IImportClient
 {
 public:
     enum class Type
@@ -18,9 +18,9 @@ public:
     };
 public:
     /// @brief Construtor with callback.
-    explicit IClient(const std::function<void (US8::MessageFormats::Broadcasts::DataPacket &&packet)> &callback);
+    explicit IImportClient(const std::function<void (US8::MessageFormats::Broadcasts::DataPacket &&packet)> &callback);
     /// @brief Destructor.
-    virtual ~IClient();
+    virtual ~IImportClient();
     /// @brief Connects the client to the data source.
     virtual void connect() = 0;
     /// @brief Starts the acquisition.
@@ -43,10 +43,10 @@ public:
     ///                        On exit, packet's behavior is undefined.
     virtual void operator()(US8::MessageFormats::Broadcasts::DataPacket &&packet);
     /// @brief Constructor.
-    IClient() = delete;
+    IImportClient() = delete;
 private:
-    class IClientImpl;
-    std::unique_ptr<IClientImpl> pImpl;
+    class IImportClientImpl;
+    std::unique_ptr<IImportClientImpl> pImpl;
 };
 }
 #endif

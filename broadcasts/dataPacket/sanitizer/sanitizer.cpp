@@ -13,7 +13,6 @@
 #include <readerwriterqueue.h>
 #include <zmq.hpp>
 #include <zmq_addon.hpp>
-#include "us8/broadcasts/dataPacket/client.hpp"
 #include "us8/messageFormats/broadcasts/dataPacket.hpp"
 #include "testFutureDataPacket.hpp"
 #include "testExpiredDataPacket.hpp"

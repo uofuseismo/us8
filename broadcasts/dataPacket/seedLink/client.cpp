@@ -15,7 +15,7 @@
 #include "clientOptions.hpp"
 #include "streamSelector.hpp"
 #include "us8/messageFormats/broadcasts/dataPacket.hpp"
-#include "us8/broadcasts/dataPacket/client.hpp"
+#include "us8/broadcasts/dataPacket/importClient.hpp"
 #include "us8/version.hpp"
 
 using namespace US8::Broadcasts::DataPacket::SEEDLink;
@@ -489,7 +489,7 @@ public:
 Client::Client(
     const std::function<void (US8::MessageFormats::Broadcasts::DataPacket &&packet)> &callback,
     const ClientOptions &options) :
-    IClient(callback),
+    IImportClient(callback),
     pImpl(std::make_unique<ClientImpl> ())
 {
     pImpl->mAddPacketFunction = callback;
@@ -540,7 +540,8 @@ bool Client::isInitialized() const noexcept
 }
 
 /// Type
-US8::Broadcasts::DataPacket::IClient::Type Client::getType() const noexcept
+US8::Broadcasts::DataPacket::IImportClient::Type Client::getType()
+    const noexcept
 {
-    return US8::Broadcasts::DataPacket::IClient::Type::SEEDLink;
+    return US8::Broadcasts::DataPacket::IImportClient::Type::SEEDLink;
 }
