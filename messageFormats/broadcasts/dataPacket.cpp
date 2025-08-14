@@ -236,11 +236,11 @@ DataPacket::DataPacket(DataPacket &&packet) noexcept
 }
 
 /// Construct from message
-DataPacket::DataPacket(const char *data, const size_t size) :
+DataPacket::DataPacket(const std::string_view &dataPacketView) :
     IMessage(),
     pImpl(std::make_unique<DataPacketImpl> ())
 {
-    deserialize(data, size);
+    deserialize(dataPacketView);
 }
 
 /// Copy assignment
@@ -542,12 +542,22 @@ std::string DataPacket::serialize() const
     return result;
 }
 
+/*
 void DataPacket::deserialize(const std::string &message)
 {
     if (message.empty()){throw std::invalid_argument("Message is empty");}
     deserialize(message.data(), message.size());   
 }
+*/
 
+void DataPacket::deserialize(const std::string_view &message)
+{
+    if (message.empty()){throw std::invalid_argument("Message is empty");}
+    auto messageData = reinterpret_cast<const uint8_t *> (message.data());
+    *this = std::move(::fromCBORMessage(messageData, message.size()));
+}
+
+/*
 void DataPacket::deserialize(const char *messageIn, const size_t length)
 {
     if (length == 0){throw std::invalid_argument("No data");}
@@ -555,9 +565,10 @@ void DataPacket::deserialize(const char *messageIn, const size_t length)
     {   
         throw std::invalid_argument("message is null");
     }
-    auto message = reinterpret_cast<const uint8_t *> (messageIn);
-    *this = std::move(::fromCBORMessage(message, length));
+    const std::string_view messageStringView{messageIn, length};
+    return deserialize(messageStringView);
 }
+*/
 
 /// Data type
 DataPacket::DataType DataPacket::getDataType() const noexcept

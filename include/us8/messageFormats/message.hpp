@@ -1,6 +1,7 @@
 #ifndef US8_MESSAGE_FORMATS_MESSAGE_HPP
 #define US8_MESSAGE_FORMATS_MESSAGE_HPP
 #include <memory>
+#include <string_view>
 namespace US8::MessageFormats
 {
 /// @class IMessage "message.hpp" "us8/messageFormats/message.hpp"
@@ -12,9 +13,9 @@ class IMessage
 {
 public:
     /// @brief Constructor.
-    IMessage();
+    //IMessage();
     /// @brief Constructs from a message stored in a string container.
-    explicit IMessage(const std::string &message);
+    //explicit IMessage(const std::string &message);
     /// @brief Destructor.
     virtual ~IMessage();
     /// @brief Create a copy of this class.
@@ -30,7 +31,9 @@ public:
     /// @brief Converts this message from a byte-stream representation to a class.
     virtual void deserialize(const std::string &message);
     /// @brief Converts this message from a byte-stream representation to a class.
-    virtual void deserialize(const char *data, size_t length) = 0;
+    virtual void deserialize(const std::string_view &message) = 0;
+    /// @brief Converts this message from a byte-stream representation to a class.
+    virtual void deserialize(const char *data, size_t length);
     /// @result The message type.
     [[nodiscard]] virtual std::string getMessageType() const noexcept = 0;
     /// @result The message version.

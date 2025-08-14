@@ -3,6 +3,7 @@ project(us8 VERSION 0.1.0 LANGUAGES CXX)
 enable_testing()
 
 option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
+option(BUILD_FOR_DEBIAN  "Build for Debian application container" ON)
 include(GenerateExportHeader)
 include(FetchContent)
 
@@ -27,6 +28,7 @@ find_package(SEEDLink)
 find_package(MiniSEED)
 find_package(Catch2 3)
 find_package(Threads REQUIRED)
+#find_program(Podman_EXECUTABLE podman REQUIRED)
 
 set(BINARIES "")
 set(CLIENT_LIBRARY_SRC 
@@ -57,7 +59,10 @@ target_include_directories(us8client
                            PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
                            PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
 target_link_libraries(us8client
-                      PRIVATE cppzmq-static nlohmann_json::nlohmann_json spdlog::spdlog)
+                      PRIVATE cppzmq-static
+                              nlohmann_json::nlohmann_json
+                              spdlog::spdlog_header_only
+                              -static-libstdc++)
 
 set(MESSAGING_LIBRARY_SRC
     messaging/authentication/authenticator.cpp
@@ -86,7 +91,7 @@ target_include_directories(us8messaging
                            PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
                            PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
 target_link_libraries(us8messaging
-                      PRIVATE spdlog::spdlog cppzmq-static Threads::Threads)
+                      PRIVATE spdlog::spdlog_header_only cppzmq-static Threads::Threads -static-libstdc++)
 
 add_executable(dataPacketBroadcastProxy 
                broadcasts/dataPacket/proxy.cpp)
@@ -98,8 +103,8 @@ target_include_directories(dataPacketBroadcastProxy
                            PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/lib>
                            PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
 target_link_libraries(dataPacketBroadcastProxy
-                      PRIVATE us8messaging us8client spdlog::spdlog Boost::program_options
-                              cppzmq-static Threads::Threads)
+                      PRIVATE us8messaging us8client spdlog::spdlog_header_only Boost::program_options
+                              cppzmq-static Threads::Threads -static-libstdc++)
 list(APPEND BINARIES dataPacketBroadcastProxy)
 
 add_executable(dataPacketSanitizer
@@ -115,8 +120,8 @@ target_include_directories(dataPacketSanitizer
                            PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/lib>
                            PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
 target_link_libraries(dataPacketSanitizer
-                      PRIVATE us8messaging us8client spdlog::spdlog Boost::program_options
-                              readerwriterqueue Threads::Threads)
+                      PRIVATE us8messaging us8client spdlog::spdlog_header_only Boost::program_options
+                              readerwriterqueue Threads::Threads -static-libstdc++)
 list(APPEND BINARIES dataPacketSanitizer)
 
 
@@ -137,9 +142,9 @@ if (${SEEDLink_FOUND} AND ${MiniSEED_FOUND})
                               PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/lib:${MINISEED_INCLUDE_DIR}:${SEEDLINK_INCLUDE_DIR}> 
                               PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
    target_link_libraries(seedLinkDataPacketBroadcastPublisher
-                         PRIVATE us8client us8messaging spdlog::spdlog Boost::program_options
+                         PRIVATE us8client us8messaging spdlog::spdlog_header_only Boost::program_options
                                  ${SEEDLINK_LIBRARY} ${MINISEED_LIBRARY}
-                                 readerwriterqueue Threads::Threads)
+                                 readerwriterqueue Threads::Threads -static-libstdc++)
    list(APPEND BINARIES seedLinkDataPacketBroadcastPublisher)
 endif()
 
@@ -167,9 +172,6 @@ install(TARGETS us8client us8messaging
 install(TARGETS ${BINARIES}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         COMPONENT applications)
-#install(FILE_SET HEADERS
-#        DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/uWaveServer
-#        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 export(EXPORT ${PROJECT_NAME}-targets
        FILE "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake")
 install(EXPORT ${PROJECT_NAME}-targets
@@ -180,6 +182,14 @@ install(FILES
         ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
 
+##########################################################################################
+#                                        Containers                                      #
+##########################################################################################
+
+if (${BUILD_FOR_DEBIAN})
+   configure_file(${CMAKE_CURRENT_SOURCE_DIR}/scripts/Dockerfile.deb.in
+                  ${CMAKE_CURRENT_BINARY_DIR}/Dockerfile.deb @ONLY)
+endif()
 
 
 ##########################################################################################
@@ -198,24 +208,38 @@ set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
 set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
 set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
-#cpack_add_component(libraries
-#                    DISPLAY_NAME "us8 common library"
-#                    DEPENDS ${MINISEED_LIBRARY})
-#cpack_add_component(headers
-#                    DISPLAY_NAME "us8 library header files"
-#                    DEPENDS libraries)
-#cpack_add_component(applications
-#                    DISPLAY_NAME "us8 applications"
-#                    DEPENDS libraries)
+cpack_add_component(libraries
+                    DISPLAY_NAME "us8 common libraries"
+                    DEPENDS ${MINISEED_LIBRARY})
+cpack_add_component(headers
+                    DISPLAY_NAME "us8 library header files"
+                    DEPENDS libraries)
+cpack_add_component(applications
+                    DISPLAY_NAME "us8 applications"
+                    DEPENDS libraries)
+set(CPACK_GENERATOR ZIP TGZ)
 if (WIN32)
-    set(CPACK_GENERATOR ZIP WIX)
+   list(APPEND CPACK_GENERATOR WIX)
 elseif (APPLE)
-    set(CPACK_GENERATOR TGZ productbuild)
+   list(APPEND CPACK_GENERATOR productbuild)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    #set(CPACK_GENERATOR TGZ RPM)
-    set(CPACK_GENERATOR TGZ)
+   find_program(RPMBUILD_PROGRAM rpmbuild)
+   if (RPMBUILD_PROGRAM)
+      list(APPEND CPACK_GENERATOR RPM)
+      #set(CPACK_RPM_PACKAGE_REQUIRES "${CPACK_RPM_PACKAGE_REQUIRES abc >= 123")
+   endif()
+   if (${BUILD_FOR_DEBIAN})
+      find_program(DPKG_PROGRAM dpkg REQUIRED)
+   else()
+      find_program(DPKG_PROGRAM dpkg)
+   endif()
+   if (DPKG_PROGRAM)
+      list(APPEND CPACK_GENERATOR DEB)
+      set(CPACK_DEBIAN_PACKAGE_DEPENDS "${CPACK_DEBIAN_PACKAGE_DEPENDS}")# libsodium (>= 1.0.20) libzmq (>=4.3.0)")
+      set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+   endif()
 else()
-    set(CPACK_GENERATOR TGZ)
+   message("Unknown operating system")
 endif()
 set(CPACK_SOURCE_IGNORE_FILES
   /\\.git/

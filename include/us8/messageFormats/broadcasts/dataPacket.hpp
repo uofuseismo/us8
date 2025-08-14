@@ -36,7 +36,9 @@ public:
     ///                        class.  On exit, packet's behavior is undefined.
     DataPacket(DataPacket &&packet) noexcept;
     /// @brief Constructs class from a message.
-    DataPacket(const char *data, size_t length);
+    /// @param[in] message  A string view of the message from which to construct
+    ///                     this class.
+    explicit DataPacket(const std::string_view &message);
     /// @}
 
     /// @name Operators
@@ -175,14 +177,7 @@ public:
     ///       human readable.
     [[nodiscard]] std::string serialize() const final;
     /// @brief Creates the class from a message.
-    void deserialize(const std::string &message) final;
-    /// @brief Creates the class from a message.
-    /// @param[in] data    The contents of the message.  This is an
-    ///                    array whose dimension is [length] 
-    /// @param[in] length  The length of data.
-    /// @throws std::runtime_error if the message is invalid.
-    /// @throws std::invalid_argument if data is NULL or length is 0. 
-    void deserialize(const char *data, size_t length) final;
+    void deserialize(const std::string_view &message) final;
     /// @result The message type - e.g., "DataPacket".
     [[nodiscard]] std::string getMessageType() const noexcept final;
     /// @result The message version.

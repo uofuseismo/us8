@@ -1,4 +1,5 @@
 #include <atomic>
+#include <string_view>
 #include <thread>
 #include <set>
 #include <string>
@@ -122,8 +123,9 @@ public:
                     = static_cast<char *> (messagesReceived.at(1).data());
                 const auto messageSize
                     = static_cast<size_t> (messagesReceived.at(1).size());
+                std::string_view messageView{payload, messageSize};
                 US8::MessageFormats::Broadcasts::DataPacket
-                    dataPacket{payload, messageSize};
+                    dataPacket{messageView}; //payload, messageSize};
                 callback(std::move(dataPacket));
             }
             catch (const std::exception &e)

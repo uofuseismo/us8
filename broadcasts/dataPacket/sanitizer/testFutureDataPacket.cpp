@@ -119,7 +119,7 @@ TestFutureDataPacket::TestFutureDataPacket(
     const std::chrono::microseconds &maxFutureTime,
     const std::chrono::seconds &logBadDataInterval) :
     pImpl(std::make_unique<TestFutureDataPacketImpl> (maxFutureTime,
-                                                  logBadDataInterval))
+                                                      logBadDataInterval))
 {
 }
 

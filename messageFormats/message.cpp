@@ -1,15 +1,8 @@
+#include <string>
+#include <string_view>
 #include "us8/messageFormats/message.hpp"
 
 using namespace US8::MessageFormats;
-
-/// Constructor
-IMessage::IMessage() = default;
-
-/// Constructor
-IMessage::IMessage(const std::string &message)
-{
-    deserialize(message);
-}
 
 /// Destructor
 IMessage::~IMessage() = default;
@@ -17,5 +10,16 @@ IMessage::~IMessage() = default;
 /// Constructor
 void IMessage::deserialize(const std::string &message)
 {
-    deserialize(message.c_str(), message.size());
+    deserialize(std::string_view {message});
 }
+
+void IMessage::deserialize(const char *data, const size_t length)
+{
+    if (length == 0){throw std::invalid_argument("No data");}
+    if (data == nullptr)
+    {   
+        throw std::invalid_argument("message data is null");
+    }   
+    const std::string_view messageStringView{data, length};
+    return deserialize(messageStringView);
+}   
