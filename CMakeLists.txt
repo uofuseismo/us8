@@ -71,7 +71,10 @@ set(MESSAGING_LIBRARY_SRC
     messaging/zeromq/authentication/service.cpp
     messaging/zeromq/authentication/grasslands.cpp
     messaging/zeromq/authentication/zapOptions.cpp)
-add_library(us8messaging ${MESSAGING_LIBRARY_SRC})
+set(WEBSERVER_LIBRARY_SRC
+    services/webServer/exception.cpp
+    services/webServer/listener.cpp)
+add_library(us8messaging ${MESSAGING_LIBRARY_SRC} ${WEBSERVER_LIBRARY_SRC})
 target_sources(us8messaging
                PUBLIC
                FILE_SET HEADERS
