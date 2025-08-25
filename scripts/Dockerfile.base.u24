@@ -16,6 +16,7 @@ RUN apt-get update &&\
     apt-get autoremove -y &&\
     apt-get autoclean -y &&\
     apt-get install -y wget &&\
+    apt-get install -y rpm &&\
     apt-get install -y git &&\
     apt-get install -y clang &&\
     apt-get install -y curl &&\
@@ -144,7 +145,7 @@ RUN mkdir -p /home/ubuntu &&\
     cd opentelemetry-cpp-1.22.0 &&\
     mkdir build &&\
     cd build &&\
-    cmake .. -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release -DWITH_PROMETHEUS=ON -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DWITH_EXAMPLES=OFF &&\
+    cmake .. -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release -DWITH_PROMETHEUS=ON -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DWITH_EXAMPLES=OFF -DWITH_ABI_VERSION_1=OFF -DWITH_ABI_VERSION_2=ON &&\
     make &&\
     make install &&\
     cd /home/ubuntu &&\
