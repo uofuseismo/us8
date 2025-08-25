@@ -29,6 +29,7 @@ find_package(MiniSEED)
 find_package(Catch2 3)
 find_package(Threads REQUIRED)
 find_package(oatpp REQUIRED)
+find_package(oatpp-websocket REQUIRED)
 find_package(opentelemetry-cpp REQUIRED)
 #find_program(Podman_EXECUTABLE podman REQUIRED)
 
