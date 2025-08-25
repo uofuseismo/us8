@@ -28,6 +28,8 @@ find_package(SEEDLink)
 find_package(MiniSEED)
 find_package(Catch2 3)
 find_package(Threads REQUIRED)
+find_package(oatpp REQUIRED)
+find_package(opentelemetry-cpp REQUIRED)
 #find_program(Podman_EXECUTABLE podman REQUIRED)
 
 set(BINARIES "")
@@ -61,8 +63,7 @@ target_include_directories(us8client
 target_link_libraries(us8client
                       PRIVATE cppzmq-static
                               nlohmann_json::nlohmann_json
-                              spdlog::spdlog_header_only
-                              -static-libstdc++)
+                              spdlog::spdlog_header_only)
 
 set(MESSAGING_LIBRARY_SRC
     messaging/authentication/authenticator.cpp
@@ -73,7 +74,9 @@ set(MESSAGING_LIBRARY_SRC
     messaging/zeromq/authentication/zapOptions.cpp)
 set(WEBSERVER_LIBRARY_SRC
     services/webServer/exception.cpp
-    services/webServer/listener.cpp)
+    services/webServer/listener.cpp
+    services/webServer/messages/message.cpp
+    services/webServer/messages/error.cpp)
 add_library(us8messaging ${MESSAGING_LIBRARY_SRC} ${WEBSERVER_LIBRARY_SRC})
 target_sources(us8messaging
                PUBLIC
@@ -94,7 +97,7 @@ target_include_directories(us8messaging
                            PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
                            PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
 target_link_libraries(us8messaging
-                      PRIVATE spdlog::spdlog_header_only cppzmq-static Threads::Threads -static-libstdc++)
+                      PRIVATE spdlog::spdlog_header_only cppzmq-static Threads::Threads)
 
 add_executable(dataPacketBroadcastProxy 
                broadcasts/dataPacket/proxy.cpp)
@@ -107,7 +110,7 @@ target_include_directories(dataPacketBroadcastProxy
                            PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
 target_link_libraries(dataPacketBroadcastProxy
                       PRIVATE us8messaging us8client spdlog::spdlog_header_only Boost::program_options
-                              cppzmq-static Threads::Threads -static-libstdc++)
+                              cppzmq-static Threads::Threads)
 list(APPEND BINARIES dataPacketBroadcastProxy)
 
 add_executable(dataPacketSanitizer
@@ -124,7 +127,8 @@ target_include_directories(dataPacketSanitizer
                            PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
 target_link_libraries(dataPacketSanitizer
                       PRIVATE us8messaging us8client spdlog::spdlog_header_only Boost::program_options
-                              readerwriterqueue Threads::Threads -static-libstdc++)
+                              opentelemetry-cpp::metrics opentelemetry-cpp::ostream_metrics_exporter
+                              readerwriterqueue Threads::Threads)
 list(APPEND BINARIES dataPacketSanitizer)
 
 
@@ -147,7 +151,8 @@ if (${SEEDLink_FOUND} AND ${MiniSEED_FOUND})
    target_link_libraries(seedLinkDataPacketBroadcastPublisher
                          PRIVATE us8client us8messaging spdlog::spdlog_header_only Boost::program_options
                                  ${SEEDLINK_LIBRARY} ${MINISEED_LIBRARY}
-                                 readerwriterqueue Threads::Threads -static-libstdc++)
+                                 opentelemetry-cpp::metrics opentelemetry-cpp::ostream_metrics_exporter
+                                 readerwriterqueue Threads::Threads)# -static-libstdc++)
    list(APPEND BINARIES seedLinkDataPacketBroadcastPublisher)
 endif()
 

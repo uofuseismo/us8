@@ -10,6 +10,20 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include <readerwriterqueue.h>
+#include <opentelemetry/nostd/shared_ptr.h>
+#include <opentelemetry/metrics/meter.h>
+#include <opentelemetry/metrics/meter_provider.h>
+#include <opentelemetry/metrics/provider.h>
+#include <opentelemetry/exporters/ostream/metric_exporter_factory.h>
+#include <opentelemetry/sdk/metrics/meter_context.h>
+#include <opentelemetry/sdk/metrics/meter_context_factory.h>
+#include <opentelemetry/sdk/metrics/meter_provider.h>
+#include <opentelemetry/sdk/metrics/meter_provider_factory.h>
+#include <opentelemetry/sdk/metrics/provider.h>
+#include <opentelemetry/sdk/metrics/export/periodic_exporting_metric_reader_factory.h>
+#include <opentelemetry/sdk/metrics/export/periodic_exporting_metric_reader_options.h>
+#include <opentelemetry/sdk/metrics/view/instrument_selector_factory.h>
+#include <opentelemetry/sdk/metrics/view/meter_selector_factory.h>
 #include "client.hpp"
 #include "clientOptions.hpp"
 #include "streamSelector.hpp"
@@ -17,8 +31,11 @@
 #include "us8/broadcasts/dataPacket/publisherOptions.hpp"
 #include "us8/messageFormats/broadcasts/dataPacket.hpp"
 
+#define APPLICATION_NAME "seedlink_data_packet_broadcaster"
 #define PROXY_FRONTEND_ADDRESS "tcp://127.0.0.1:5550"
 #define MAX_QUEUE_SIZE 1024
+#define OTEL_VERSION "1.2.0"
+#define OTEL_SCHEMA "https://opentelemetry.io/schemas/1.2.0"
 
 namespace
 {
@@ -29,12 +46,17 @@ std::atomic<bool> mInterrupted{false};
 struct ProgramOptions
 {
     US8::Broadcasts::DataPacket::SEEDLink::ClientOptions seedLinkClientOptions;
+    std::string applicationName{APPLICATION_NAME};
+    std::string openTelemetrySchema{OTEL_SCHEMA};
+    std::string openTelemetryVersion{OTEL_VERSION};
     std::string proxyFrontendAddress{PROXY_FRONTEND_ADDRESS};
     // Maximum time before a send operation returns with EAGAIN
     // -1 waits forever whereas 0 returns immediately.
     std::chrono::milliseconds sendTimeOut{1000}; // 1s is enough
     std::chrono::seconds oldestPacket{-1};
     std::chrono::seconds logPublishingPerformanceInterval{600}; // Every 10 minutes 
+    std::chrono::milliseconds openTelemetryExportInterval{60000}; // 1 second
+    std::chrono::milliseconds openTelemetryTimeOut{500};
     int sendHighWaterMark{4096};
     int verbosity{3};
     bool preventFuturePackets{true};
@@ -47,8 +69,56 @@ class Process
 {
 public:
     Process() = delete;
-    explicit Process(const ProgramOptions &options)
+    explicit Process(const ProgramOptions &options) :
+        mOptions(options)
     {
+        // Create the exporter
+        auto exporter 
+            = opentelemetry::exporter::metrics::OStreamMetricExporterFactory::Create();
+
+        // Create the provider and reader
+        opentelemetry::sdk::metrics::PeriodicExportingMetricReaderOptions meterOptions;
+//        meterOptions.export_interval_millis = options.openTelemetryExportInterval;
+        meterOptions.export_timeout_millis = options.openTelemetryTimeOut;
+        auto reader
+            = opentelemetry::sdk::metrics::PeriodicExportingMetricReaderFactory
+                ::Create(std::move(exporter), meterOptions); 
+
+        auto context
+            = opentelemetry::sdk::metrics::MeterContextFactory::Create();
+        context->AddMetricReader(std::move(reader));
+        auto provider
+            = opentelemetry::sdk::metrics::MeterProviderFactory::Create(std::move(context));
+
+/*
+        auto gaugeName = options.applicationName
+                       + "-propagated_packets_gauge";
+        auto gaugeUnit = "packets/minute";
+
+        auto instrumentSelector
+            = opentelemetry::sdk::metrics::InstrumentSelectorFactory::Create(
+                 opentelemetry::sdk::metrics::InstrumentType::kGauge, 
+                 gaugeName,
+                 gaugeUnit);
+
+        auto meterSelector 
+            = opentelemetry::sdk::metrics::MeterSelectorFactory::Create(
+                 options.applicationName,
+                 options.openTelemetryVersion,
+                 options.openTelemetrySchema);
+        auto sumView = opentelemetry::sdk::metrics::ViewFactory::Create(
+                          options.applicationName,
+                          opentelemetry::sdk:metrics::AggregationType::kSum);
+
+        provider->AddView(std::move(instrumentSelector),
+                          std::move(meterSelector),
+                          std::move(sumView));
+*/
+
+        std::shared_ptr<opentelemetry::metrics::MeterProvider> apiProvider(std::move(provider));
+        opentelemetry::sdk::metrics::Provider::SetMeterProvider(apiProvider);
+                             
+
         mLogPublishingPerformanceInterval
             = options.logPublishingPerformanceInterval;
         // Initialize ZMQ publisher
@@ -88,6 +158,13 @@ public:
     ~Process()
     {
         stop();
+        cleanupMetrics();
+    }
+    /// Cleanup metrics
+    void cleanupMetrics()
+    {
+        std::shared_ptr<opentelemetry::metrics::MeterProvider> noProvider;
+        opentelemetry::sdk::metrics::Provider::SetMeterProvider(noProvider);
     }
     /// Start the service
     void start()
@@ -109,6 +186,28 @@ public:
     /// Sends packets to the proxy via ZeroMQ
     void sendPacketsViaZeroMQ()
     {
+        // Get my monitoring stuff
+        auto provider = opentelemetry::metrics::Provider::GetMeterProvider();
+
+        opentelemetry::nostd::shared_ptr<opentelemetry::metrics::Meter>
+            meter = provider->GetMeter(mOptions.applicationName,
+                                       mOptions.openTelemetryVersion);
+        auto propagatedGaugeName = mOptions.applicationName
+                                 + "-propagated_packets_gauge";
+        auto notPropagatedGaugeName = mOptions.applicationName
+                                    + "-skipped_packets_gauge";
+        auto publishedPacketsGauge
+            = meter->CreateInt64Gauge(
+                 propagatedGaugeName,
+                 "Number of packets propagated from SEEDLink to ZeroMQ in last minute",
+                 "packets/minute");
+        auto notPublishedPacketsGauge
+            = meter->CreateInt64Gauge(
+                 notPropagatedGaugeName,
+                 "Number of packets not propagated from SEEDLink to ZeroMQ in last minute",
+                 "packets/minute");
+        auto context = opentelemetry::context::Context{};
+
 #ifndef NDEBUG
         assert(mPacketPublisher != nullptr);
 #endif
@@ -121,8 +220,13 @@ public:
               (std::chrono::high_resolution_clock::now()).time_since_epoch();
         auto lastLogTime
             = std::chrono::duration_cast<std::chrono::seconds> (nowMuSeconds);
+        auto nextSendMetricTime
+            = std::chrono::duration_cast<std::chrono::seconds> (nowMuSeconds)
+            + std::chrono::seconds {60};
         int64_t nSentPackets{0};
         int64_t nNotSentPackets{0};
+        uint64_t nSentPacketsInLastMinute{0};
+        uint64_t nNotSentPacketsInLastMinute{0};
         while (mKeepRunning)
         {
             if (mQueue.size_approx() > MAX_QUEUE_SIZE)
@@ -136,6 +240,8 @@ public:
                 spdlog::warn("Overfull queue - deleted "
                            + std::to_string(nDeleted) + " packets");
                 nNotSentPackets = nNotSentPackets + nDeleted;
+                nNotSentPacketsInLastMinute
+                    = nNotSentPacketsInLastMinute + nDeleted;
             }
             // Got a packet?
             auto packet = mQueue.peek();
@@ -145,6 +251,7 @@ public:
                 {
                     mPacketPublisher->send(*packet);
                     nSentPackets = nSentPackets + 1;
+                    nSentPacketsInLastMinute = nSentPacketsInLastMinute + 1;
                 }
                 catch (const std::exception &e) 
                 {   
@@ -177,6 +284,24 @@ public:
                 nSentPackets = 0;
                 nNotSentPackets = 0;
                 lastLogTime = nowSeconds;
+            }
+            if (nowSeconds >= nextSendMetricTime)
+            {
+spdlog::info("Yes");
+                try
+                {
+                    publishedPacketsGauge->Record(nSentPacketsInLastMinute, context);
+                    notPublishedPacketsGauge->Record(nNotSentPacketsInLastMinute, context);
+                }
+                catch (const std::exception &e)
+                {
+                    spdlog::warn("Failed to publish metrics because "
+                               + std::string {e.what()});
+                }
+                nSentPacketsInLastMinute = 0;
+                nNotSentPacketsInLastMinute = 0;
+                nextSendMetricTime
+                    = nowSeconds + std::chrono::seconds {60};
             }
         }
         spdlog::info("Thread exiting publisher");
@@ -259,6 +384,7 @@ public:
         sigaction(SIGTERM, &action, NULL);
     }   
 ///private:
+    ::ProgramOptions mOptions;
     std::thread mAcquisitionThread;
     std::thread mPublisherThread;
     std::unique_ptr<US8::Broadcasts::DataPacket::Publisher>
@@ -267,6 +393,8 @@ public:
         mQueue{MAX_QUEUE_SIZE};
     std::unique_ptr<US8::Broadcasts::DataPacket::SEEDLink::Client>
         mSEEDLinkClient{nullptr};
+    std::unique_ptr<opentelemetry::sdk::metrics::PushMetricExporter>
+        mMetricsExporter{nullptr};
     std::function<void(US8::MessageFormats::Broadcasts::DataPacket &&packet)>
         mAddPacketsFromAcquisitionCallback
     {

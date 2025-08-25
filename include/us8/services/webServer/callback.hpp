@@ -40,16 +40,17 @@ public:
     /// @brief Destructor.
     virtual ~ICallback();
     /// @brief Processes an HTTP GET/POST/PUT request, e.g., 
-    ///        jsonPayLoad = callback(httpHeader, httpPayload, httpVerb);
+    ///        jsonPayLoad = callback(httpHeader, payload, httpVerb);
     /// @param[in] header   The HTTP header.  Most critically, this will contain
     ///                     the Authorization field which can be Basic
     ///                     or Bearer.
-    /// @param[in] message  The JSON request message to process.
+    /// @param[in] payload  The JSON request message to process.
     /// @param[in] method   The HTTP verb - e.g., GET/POST/PUT.
+    /// @throws An appropriate exception.
     [[nodiscard]]
     std::pair<std::string, std::string> 
         operator()(const boost::beast::http::header<true, boost::beast::http::basic_fields<std::allocator<char> > > &requestHeader,
-                   const std::string &message,
+                   const std::string &payload,
                    boost::beast::http::verb method) const;
     /// @result A function pointer to the callback function.
     [[nodiscard]]

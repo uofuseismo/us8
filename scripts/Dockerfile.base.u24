@@ -116,7 +116,28 @@ RUN mkdir -p /home/ubuntu &&\
     make &&\
     make install &&\
     cd /home/ubuntu &&\
-    rm -rf cppzmq-4.11.0
+    rm -rf cppzmq-4.11.0 &&\
+    wget https://github.com/oatpp/oatpp/archive/refs/tags/1.3.1.tar.gz &&\
+    tar -xf 1.3.1.tar.gz &&\
+    rm 1.3.1.tar.gz &&\
+    cd oatpp-1.3.1 &&\
+    mkdir build &&\
+    cd build &&\
+    cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF &&\
+    make &&\
+    make install &&\
+    cd /home/ubuntu &&\
+    rm -rf oatpp-1.3.1 &&\
+    wget https://github.com/open-telemetry/opentelemetry-cpp/archive/refs/tags/v1.22.0.tar.gz &&\
+    tar -xf v1.22.0.tar.gz &&\
+    rm v1.22.0.tar.gz &&\
+    cd opentelemetry-cpp-1.22.0 &&\
+    cmake .. -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release -DWITH_PROMETHEUS=ON -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DWITH_EXAMPLES=OFF &&\
+    make &&\
+    make install &&\
+    cd /home/ubuntu &&\
+    rm -r opentelemetry-cpp-1.22.0
+    
 
 # slink/mseed
 RUN cd /home/ubuntu &&\

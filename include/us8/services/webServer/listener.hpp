@@ -7,6 +7,7 @@
 #include <boost/beast/ssl.hpp>
 #include <boost/beast/http/message.hpp>
 #include <boost/beast/http/verb.hpp>
+#include <us8/services/webServer/callbackHandler.hpp>
 namespace US8::Services::WebServer
 {
 /// @class Listener "listener.hpp"
@@ -29,17 +30,7 @@ public:
              boost::asio::ssl::context &sslContext,
              boost::asio::ip::tcp::endpoint endpoint,
              const std::shared_ptr<const std::string> &documentRoot,
-             const std::function
-             <
-                std::pair<std::string, std::string>
-                (const boost::beast::http::header
-                             <
-                                 true,
-                                 boost::beast::http::basic_fields<std::allocator<char>>
-                             > &,
-                             const std::string &,
-                             const boost::beast::http::verb)
-             > &callback);
+             US8::Services::WebServer::CallbackHandler &&callbackHandler);
     /// @brief Begin accepting incoming connections.
     void run();
 private:
@@ -51,14 +42,8 @@ private:
     boost::asio::ssl::context &mSSLContext;
     boost::asio::ip::tcp::acceptor mAcceptor;
     std::shared_ptr<const std::string> mDocumentRoot;
-    std::function<std::pair<std::string, std::string>
-                  (const boost::beast::http::header
-                   <
-                       true,
-                       boost::beast::http::basic_fields<std::allocator<char>>
-                   > &,
-                   const std::string &,
-                   const boost::beast::http::verb)> mCallback;
+    std::shared_ptr<US8::Services::WebServer::CallbackHandler>
+        mCallbackHandler{nullptr};
 };
 }
 #endif

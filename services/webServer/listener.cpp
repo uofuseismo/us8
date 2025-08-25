@@ -11,18 +11,13 @@ Listener::Listener(
         boost::asio::ssl::context &sslContext,
         boost::asio::ip::tcp::endpoint endpoint, 
         const std::shared_ptr<const std::string> &documentRoot,
-        const std::function
-        <
-            std::pair<std::string, std::string>
-               (const boost::beast::http::header<true, boost::beast::http::basic_fields<std::allocator<char> > > &,
-                const std::string &,
-                const boost::beast::http::verb)
-        > &callback) :
-          mIOContext(ioContext),
-          mSSLContext(sslContext),
-          mAcceptor(boost::asio::make_strand(ioContext)),
-          mDocumentRoot(documentRoot),
-          mCallback(callback)
+        US8::Services::WebServer::CallbackHandler
+            &&callbackHandler) :
+        mIOContext(ioContext),
+        mSSLContext(sslContext),
+        mAcceptor(boost::asio::make_strand(ioContext)),
+        mDocumentRoot(documentRoot),
+        mCallbackHandler(std::make_shared<US8::Services::WebServer::CallbackHandler> (std::move(callbackHandler)))
 {   
     boost::beast::error_code errorCode;
 
@@ -111,7 +106,7 @@ void Listener::onAccept(boost::beast::error_code errorCode,
             std::move(socket),
             mSSLContext,
             mDocumentRoot,
-            mCallback)->run();
+            mCallbackHandler)->run();
     }
 
     // Accept another connection

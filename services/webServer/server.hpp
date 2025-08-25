@@ -26,6 +26,8 @@
 #include <thread>
 #include <spdlog/spdlog.h>
 #include <nlohmann/json.hpp>
+#include "us8/services/webServer/callbackHandler.hpp"
+#include "us8/services/webServer/messages/error.hpp"
 #include "us8/services/webServer/exception.hpp"
 
 /*
@@ -114,15 +116,7 @@ handleRequest(
     <
        Body, boost::beast::http::basic_fields<Allocator>
     > &&request,
-    std::function<
-        std::pair<std::string, std::string>
-        (const boost::beast::http::header
-         <
-             true,
-             boost::beast::http::basic_fields<std::allocator<char>>
-         > &,
-        const std::string &,
-        const boost::beast::http::verb)> &callback)
+    US8::Services::WebServer::CallbackHandler &callbackHandler)
 {
     // Returns a bad request response
     const auto badRequest = [&request](boost::beast::string_view why)
@@ -339,6 +333,7 @@ handleRequest(
     if (request.method() == boost::beast::http::verb::get)
     {
         namespace UWebServer = US8::Services::WebServer;
+/*
         try
         {
             auto [payload, mimeType]
@@ -386,6 +381,7 @@ handleRequest(
         {
             return serverError(e.what());
         }
+*/
     }
     return serverError("Unhandled method");
 }
@@ -393,7 +389,6 @@ handleRequest(
 ///--------------------------------------------------------------------------///
 ///                               Web Sockets                                ///
 ///--------------------------------------------------------------------------///
-/*
 // Echoes back all received WebSocket messages.
 // This uses the Curiously Recurring Template Pattern so that
 // the same code works with both SSL streams and regular sockets.
@@ -504,7 +499,7 @@ private:
                 = derived().getCallbackHandler()->process(requestMessage);
             if (responseMessage)
             {
-                reply(MLReview::Messages::toJSON(responseMessage));
+                reply(US8::Services::WebServer::Messages::toJSON(responseMessage));
             }
             else
             {
@@ -517,10 +512,10 @@ private:
                        + std::string{e.what()});
             try
             {
-                MLReview::Messages::Error errorMessage;
+                US8::Services::WebServer::Messages::Error errorMessage;
                 errorMessage.setStatusCode(500);
                 errorMessage.setMessage("server error - unhandled exception");
-                reply(MLReview::Messages::toJSON(errorMessage.clone()));
+                reply(US8::Services::WebServer::Messages::toJSON(*errorMessage.clone()));
             }
             catch (const std::exception &e)
             {
@@ -639,7 +634,8 @@ public:
     PlainWebSocketSession(
         const std::string sessionIdentifier, 
         boost::beast::tcp_stream &&stream,
-        std::shared_ptr<MLReview::Service::Handler> &callbackHandler) :
+        std::shared_ptr<US8::Services::WebServer::CallbackHandler>
+            &callbackHandler) :
         mWebSocket(std::move(stream)),
         mCallbackHandler(callbackHandler),
         mSessionIdentifier(sessionIdentifier)
@@ -660,15 +656,16 @@ public:
     }
 
     // Called by the base class to get a handle to the callback handler
-    std::shared_ptr<MLReview::Service::Handler> getCallbackHandler()
+    std::shared_ptr<US8::Services::WebServer::CallbackHandler> getCallbackHandler()
     {
         return mCallbackHandler;
     }
 private:
     boost::beast::websocket::stream<boost::beast::tcp_stream> mWebSocket;
-    std::shared_ptr<MLReview::Service::Handler> mCallbackHandler;
+    std::shared_ptr<US8::Services::WebServer::CallbackHandler>
+        mCallbackHandler{nullptr};
     std::string mSessionIdentifier;
-    std::string mServiceName{"us8"}
+    std::string mServiceName{"us8"};
 };
 
 // Handles an SSL WebSocket connection
@@ -681,7 +678,7 @@ public:
     SSLWebSocketSession(
         const std::string &sessionIdentifier,
         boost::asio::ssl::stream<boost::beast::tcp_stream> &&stream,
-        std::shared_ptr<MLReview::Service::Handler> &callbackHandler) :
+        std::shared_ptr<US8::Services::WebServer::CallbackHandler> &callbackHandler) :
         mWebSocket(std::move(stream)),
         mCallbackHandler(callbackHandler),
         mSessionIdentifier(sessionIdentifier)
@@ -704,7 +701,8 @@ public:
         return mWebSocket;
     }
 
-    std::shared_ptr<MLReview::Service::Handler> getCallbackHandler()
+    std::shared_ptr<US8::Services::WebServer::CallbackHandler>
+    getCallbackHandler()
     {
         return mCallbackHandler;
     }
@@ -713,11 +711,12 @@ private:
     <
      boost::asio::ssl::stream<boost::beast::tcp_stream>
     > mWebSocket;
-    std::shared_ptr<MLReview::Service::Handler> mCallbackHandler;
+    std::shared_ptr<US8::Services::WebServer::CallbackHandler>
+        mCallbackHandler{nullptr};
     std::string mSessionIdentifier;
     std::string mServiceName{"us8"};
 };
-*/
+
 //------------------------------------------------------------------------------
 
 // Handles an HTTP server connection.
@@ -731,20 +730,11 @@ public:
     Session(
         boost::beast::flat_buffer buffer,
         const std::shared_ptr<const std::string> &documentRoot,
-        const std::function
-        <
-            std::pair<std::string, std::string>
-                (const boost::beast::http::header
-                 <
-                    true,
-                    boost::beast::http::basic_fields<std::allocator<char>>
-                 > &,
-                 const std::string &,
-                 const boost::beast::http::verb )
-        > &callback) :
+        std::shared_ptr<US8::Services::WebServer::CallbackHandler>
+            &callbackHandler) :
         mDocumentRoot(documentRoot),
         mBuffer(std::move(buffer)),
-        mCallback(callback)
+        mCallbackHandler(callbackHandler)
     {
     }
 
@@ -795,7 +785,7 @@ private:
         sendResponse(::handleRequest(*mDocumentRoot,
                                      //std::move(mRequest),
                                      mRequestParser->release(),
-                                     mCallback));
+                                     *mCallbackHandler));
     }
 
     void sendResponse(boost::beast::http::message_generator &&message)
@@ -858,14 +848,7 @@ private:
     <    
      boost::beast::http::request_parser<boost::beast::http::string_body>
     > mRequestParser;
-    std::function<std::pair<std::string, std::string>
-                  (const boost::beast::http::header
-                   <
-                      true,
-                      boost::beast::http::basic_fields<std::allocator<char>>
-                   > &,
-                   const std::string &,
-                   const boost::beast::http::verb)> mCallback;
+    std::shared_ptr<US8::Services::WebServer::CallbackHandler> mCallbackHandler{nullptr};
 };
 
 // Handles a plain HTTP connection
@@ -878,21 +861,12 @@ public:
         boost::asio::ip::tcp::socket&& socket,
         boost::beast::flat_buffer buffer,
         const std::shared_ptr<const std::string> &documentRoot,
-        const std::function
-        <
-            std::pair<std::string, std::string>
-            (const boost::beast::http::header
-             <
-                true,
-                boost::beast::http::basic_fields<std::allocator<char>>
-             > &,
-             const std::string &,
-             const boost::beast::http::verb)
-        > &callback) :
+        std::shared_ptr<US8::Services::WebServer::CallbackHandler>
+             &callbackHandler) :
         ::Session<::PlainSession>(
             std::move(buffer),
             documentRoot,
-            callback),
+            callbackHandler),
         mStream(std::move(socket))
     {
     }
@@ -941,20 +915,11 @@ public:
         boost::asio::ssl::context &sslContext,
         boost::beast::flat_buffer buffer,
         const std::shared_ptr<const std::string> &documentRoot,
-        const std::function
-        <
-            std::pair<std::string, std::string>
-            (const boost::beast::http::header
-             <
-                 true,
-                 boost::beast::http::basic_fields<std::allocator<char>>
-             > &,
-             const std::string &,
-             const boost::beast::http::verb)
-        > &callback) :
+        std::shared_ptr<US8::Services::WebServer::CallbackHandler>
+            &callbackHandler) :
         ::Session<::SSLSession>(std::move(buffer),
                                 documentRoot,
-                                callback),
+                                callbackHandler),
         mStream(std::move(socket), sslContext)
     {
     }
@@ -1048,21 +1013,12 @@ public:
         boost::asio::ip::tcp::socket &&socket,
         boost::asio::ssl::context& sslContext,
         const std::shared_ptr<const std::string> &documentRoot,
-        const std::function
-        <
-            std::pair<std::string, std::string>
-            (const boost::beast::http::header
-             <
-                 true,
-                 boost::beast::http::basic_fields<std::allocator<char>>
-             > &,
-             const std::string &,
-             const boost::beast::http::verb request)
-        > &callback) :
+        std::shared_ptr<US8::Services::WebServer::CallbackHandler>
+            &callbackHandler) :
         mStream(std::move(socket)),
         mSSLContext(sslContext),
         mDocumentRoot(documentRoot),
-        mCallback(callback)
+        mCallbackHandler(callbackHandler)
     {
     }
 
@@ -1103,7 +1059,7 @@ public:
                 mSSLContext,
                 std::move(mBuffer),
                 mDocumentRoot,
-                mCallback)->run();
+                mCallbackHandler)->run();
             return;
         }
 
@@ -1112,7 +1068,7 @@ public:
             mStream.release_socket(),
             std::move(mBuffer),
             mDocumentRoot,
-            mCallback)->run();
+            mCallbackHandler)->run();
     }
 
 private:
@@ -1120,14 +1076,8 @@ private:
     boost::asio::ssl::context& mSSLContext;
     std::shared_ptr<const std::string> mDocumentRoot;
     boost::beast::flat_buffer mBuffer;
-    std::function<std::pair<std::string, std::string>
-                  (const boost::beast::http::header
-                   <
-                       true,
-                       boost::beast::http::basic_fields<std::allocator<char>>
-                   > &,
-                   const std::string &,
-                   const boost::beast::http::verb)> mCallback;
+    std::shared_ptr<US8::Services::WebServer::CallbackHandler>
+        mCallbackHandler{nullptr};
 };
 
 }
