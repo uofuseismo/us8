@@ -40,17 +40,17 @@ RUN mkdir -p /home/ubuntu &&\
     make install &&\
     cd /home/ubuntu &&\
     rm -r zlib-1.3.1 &&\
-    wget -q https://github.com/catchorg/Catch2/archive/refs/tags/v3.8.1.tar.gz &&\
-    tar -xf v3.8.1.tar.gz &&\
-    rm v3.8.1.tar.gz &&\
-    cd Catch2-3.8.1/ &&\
+    wget -q https://github.com/catchorg/Catch2/archive/refs/tags/v3.9.1.tar.gz &&\
+    tar -xf v3.9.1.tar.gz &&\
+    rm v3.9.1.tar.gz &&\
+    cd Catch2-3.9.1/ &&\
     mkdir build &&\
     cd build &&\
     cmake .. -DCMAKE_CXX_COMPILER=clang++ &&\
     make &&\
     make install &&\
     cd /home/ubuntu &&\
-    rm -rf Catch2-3.8.1/ &&\
+    rm -rf Catch2-3.9.1/ &&\
     cd /home/ubuntu &&\
     wget -q https://archives.boost.io/release/1.88.0/source/boost_1_88_0.tar.gz &&\
     tar -xf boost_1_88_0.tar.gz &&\
@@ -128,16 +128,27 @@ RUN mkdir -p /home/ubuntu &&\
     make install &&\
     cd /home/ubuntu &&\
     rm -rf oatpp-1.3.1 &&\
+    wget https://github.com/oatpp/oatpp-websocket/archive/refs/tags/1.3.0-latest.tar.gz &&\
+    tar -xf 1.3.0-latest.tar.gz &&\
+    rm 1.3.0-latest.tar.gz &&\
+    cd oatpp-websocket-1.3.0-latest &&\
+    mkdir build &&\
+    cd build &&\
+    cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF &&\
+    make install &&\
+    cd /home/ubuntu &&\
+    rm -r oatpp-websocket-1.3.0-latest &&\
     wget https://github.com/open-telemetry/opentelemetry-cpp/archive/refs/tags/v1.22.0.tar.gz &&\
     tar -xf v1.22.0.tar.gz &&\
     rm v1.22.0.tar.gz &&\
     cd opentelemetry-cpp-1.22.0 &&\
+    mkdir build &&\
+    cd build &&\
     cmake .. -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release -DWITH_PROMETHEUS=ON -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DWITH_EXAMPLES=OFF &&\
     make &&\
     make install &&\
     cd /home/ubuntu &&\
     rm -r opentelemetry-cpp-1.22.0
-    
 
 # slink/mseed
 RUN cd /home/ubuntu &&\
