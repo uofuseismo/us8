@@ -147,11 +147,11 @@ if (${SEEDLink_FOUND} AND ${MiniSEED_FOUND})
    target_compile_definitions(seedLinkDataPacketBroadcastPublisher
                               PRIVATE USE_MS_VERSION_315)
    target_include_directories(seedLinkDataPacketBroadcastPublisher
-                              PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/lib:${MINISEED_INCLUDE_DIR}:${SEEDLINK_INCLUDE_DIR}> 
+                              #PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/lib:${MINISEED_INCLUDE_DIR}>#:${SEEDLINK_INCLUDE_DIR}> 
                               PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
    target_link_libraries(seedLinkDataPacketBroadcastPublisher
                          PRIVATE us8client us8messaging spdlog::spdlog_header_only Boost::program_options
-                                 ${SEEDLINK_LIBRARY} ${MINISEED_LIBRARY}
+                                 SEEDLink::SEEDLink MiniSEED::MiniSEED
                                  opentelemetry-cpp::metrics opentelemetry-cpp::ostream_metrics_exporter
                                  readerwriterqueue Threads::Threads)# -static-libstdc++)
    list(APPEND BINARIES seedLinkDataPacketBroadcastPublisher)
