@@ -157,7 +157,16 @@ if (${SEEDLink_FOUND} AND ${MiniSEED_FOUND})
    list(APPEND BINARIES seedLinkDataPacketBroadcastPublisher)
 endif()
 
-
+add_executable(externalAPI
+               webServer/dataBroadcast.cpp
+               webServer/webSocket/listener.cpp)
+target_include_directories(externalAPI
+                           PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
+target_link_libraries(externalAPI
+                      PRIVATE us8client us8messaging spdlog::spdlog_header_only Boost::program_options
+                              opentelemetry-cpp::metrics opentelemetry-cpp::ostream_metrics_exporter
+                              oatpp::oatpp oatpp::oatpp-websocket
+                              Threads::Threads)
 
 ##########################################################################################
 #                                      Installation                                      #
@@ -194,17 +203,27 @@ install(FILES
 ##########################################################################################
 #                                        Containers                                      #
 ##########################################################################################
-
+include(CPackComponent)
 if (${BUILD_FOR_DEBIAN})
    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/scripts/Dockerfile.deb.in
                   ${CMAKE_CURRENT_BINARY_DIR}/Dockerfile.deb @ONLY)
+   add_custom_target(${PROJECT_NAME}-deb
+                     COMMENT "Creating deb file for ${PROJECT_NAME}"
+                     COMMAND ${CMAKE_CPACK_COMMAND} -G DEB
+                     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} VERBATIM)
+   add_dependencies(${PROJECT_NAME}-deb ${BINARIES})
+   find_program(buildah_EXECUTABLE buildah REQUIRED)
+   add_custom_target(buildah
+                     COMMENT "Preparing the container with buildah"
+                     COMMAND ${buildah_EXECUTABLE} bud -t us8executor:${PROJECT_VERSION} -t us8executor:latest -f ./Dockerfile.deb
+                     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} VERBATIM)
+   add_dependencies(buildah ${PROJECT_NAME}-deb)
 endif()
 
 
 ##########################################################################################
 #                                     CPACK Packaging                                    #
 ##########################################################################################
-include(CPackComponent)
 set(CPACK_PACKAGE_NAME ${PROJECT_NAME})
 set(CPACK_PACKAGE_VENDOR "UUSS")
 set(CPACK_PACKAGE_CONTACT "ben.baker@utah.edu")

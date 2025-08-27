@@ -1,10 +1,18 @@
 # Purpose: Creates the container for running the US8 software.
 # Usage: podman build -t us8executor:latest -f Dockerfile.deb
+#        buildah bud -t us8executor:latest -f Dockerfile.deb
 FROM ubuntu:24.04
 ADD us8-@PROJECT_VERSION@-Linux.deb .
 RUN apt-get update &&\
+    apt-get upgrade -y &&\
+    apt-get autoremove -y &&\
+    apt-get autoclean -y &&\
+    apt-get -y install bash &&\
     apt-get -y --no-install-recommends install ./us8-@PROJECT_VERSION@-Linux.deb &&\
     apt-get autoremove -y &&\
     apt-get clean &&\
     rm -r /var/lib/apt/lists/* us8-@PROJECT_VERSION@-Linux.deb
 
+RUN useradd -ms /bin/bash us8
+USER us8
+WORKDIR /home/us8

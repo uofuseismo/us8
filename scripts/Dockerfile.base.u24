@@ -1,6 +1,8 @@
 # Purpose: Creates the base image for building the us8 C++ software - 
 #          i.e., - all the prerequisites so you are ready to build.
 # Usage: podman build -t us8base:latest -f Dockerfile.base.u24
+#   or   buildah bud -t us8base:latest -f Dockerfile.base.u24
+#        buildah push us8base quay.io/uuss/us8base
 
 FROM ubuntu:24.04 AS us8builder
 
@@ -17,6 +19,7 @@ RUN apt-get update &&\
     apt-get autoclean -y &&\
     apt-get install -y wget &&\
     apt-get install -y rpm &&\
+    apt-get install -y file &&\
     apt-get install -y git &&\
     apt-get install -y clang &&\
     apt-get install -y curl &&\
@@ -25,7 +28,8 @@ RUN apt-get update &&\
     apt-get install -y make &&\
     apt-get install -y cmake &&\
     apt-get install -y libssl-dev &&\
-    apt-get install -y openssl
+    apt-get install -y openssl &&\
+    apt-get install -y buildah
 
 # Usually good to have zlib and I need boost but not everything in dev-all
 RUN mkdir -p /home/ubuntu &&\
