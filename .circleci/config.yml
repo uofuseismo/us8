@@ -18,7 +18,7 @@ jobs:
           command: |
             echo $QUAY_ROBOT_USER
             echo $QUAY_ROBOT_PASSWORD
-            buildah login -u='$QUAY_ROBOT_USER' -p=${QUAY_ROBOT_PASSWORD} quay.io
+            buildah login -u='$QUAY_ROBOT_USER' -p='${QUAY_ROBOT_PASSWORD}' quay.io
       - run:
           name: "Configure code"
           command: |
