@@ -14,6 +14,11 @@ jobs:
     steps:
       - checkout
       - run:
+          name: "fail fast"
+          command: |
+            echo ${QUAY_ROBOT_USER}
+            buildah login -u '${QUAY_ROBOT_USER}' -p ${QUAY_ROBOT_PASSWORD} quay.io
+      - run:
           name: "Configure code"
           command: |
             if [ -d build ]; then
@@ -51,7 +56,8 @@ jobs:
       - run:
           name: "Push latest container"
           command: |
-            buildah login -u='${QUAY_ROBOT_USER}' -p='${QUAY_ROBOT_PASSWORD}' quay.io
+            echo ${QUAY_ROBOT_USER}
+            buildah login -u '${QUAY_ROBOT_USER}' -p ${QUAY_ROBOT_PASSWORD} quay.io
             cd build
             make buildah
             buildah push us8executor quay.io/uuss/us8executor
