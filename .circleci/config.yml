@@ -58,7 +58,8 @@ jobs:
             #echo ${QUAY_ROBOT_USER}
             #buildah login -u="$QUAY_ROBOT_USER" -p="$QUAY_ROBOT_PASSWORD" quay.io
             cd build
-            make buildah
+            buildah bud --storage-driver=vfs --isolation=chroot -t us8executor:latest -f ./Dockerfile.deb
+            #make buildah
             buildah push us8executor quay.io/uuss/us8executor
     # End steps
   # End compile job
