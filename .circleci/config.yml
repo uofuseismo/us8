@@ -60,9 +60,10 @@ jobs:
             cd build
             ls
             make us8-deb
-            buildah bud --storage-driver=vfs --isolation=chroot -t us8executor:latest -f ./Dockerfile.deb
+            buildah info
+            buildah --storage-driver=vfs --isolation=chroot bud -t us8executor:latest -f ./Dockerfile.deb
             #make buildah
-            buildah push us8executor quay.io/uuss/us8executor
+            buildah --storage-driver=vfs push us8executor quay.io/uuss/us8executor
     # End steps
   # End compile job
   #deploy-job:
