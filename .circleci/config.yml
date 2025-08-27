@@ -52,18 +52,18 @@ jobs:
              rm -rf /tmp/artifacts/_CPack_Packages
       - store_artifacts:
           path: /tmp/artifacts
-      - run:
-          name: "Push latest container"
-          command: |
-            #echo ${QUAY_ROBOT_USER}
-            #buildah login -u="$QUAY_ROBOT_USER" -p="$QUAY_ROBOT_PASSWORD" quay.io
-            cd build
-            ls
-            make us8-deb
-            buildah info
-            buildah --storage-driver=vfs --isolation=chroot bud -t us8executor:latest -f ./Dockerfile.deb
-            #make buildah
-            buildah --storage-driver=vfs push us8executor quay.io/uuss/us8executor
+      #- run:
+      #    name: "Push latest container"
+      #    command: |
+      #      #echo ${QUAY_ROBOT_USER}
+      #      #buildah login -u="$QUAY_ROBOT_USER" -p="$QUAY_ROBOT_PASSWORD" quay.io
+      #      cd build
+      #      ls
+      #      make us8-deb
+      #      buildah info
+      #      buildah --storage-driver=vfs --isolation=chroot bud -t us8executor:latest -f ./Dockerfile.deb
+      #      #make buildah
+      #      buildah --storage-driver=vfs push us8executor quay.io/uuss/us8executor
     # End steps
   # End compile job
   #deploy-job:
