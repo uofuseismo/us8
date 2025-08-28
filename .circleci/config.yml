@@ -99,7 +99,8 @@ jobs:
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
-            - *.deb
+            - Dockerfile.deb
+            - us8-*
       #- run:
       #    name: "Push latest container"
       #    command: |
