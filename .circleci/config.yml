@@ -18,6 +18,7 @@ jobs:
           name: "Buildah login"
           command: |
             buildah login -u="$QUAY_ROBOT_USER" -p="$QUAY_ROBOT_PASSWORD" quay.io
+            buildah --storage-driver=overlay2 images
       - run:
           name: "Configure code"
           command: |
