@@ -9,9 +9,9 @@ jobs:
       - setup_remote_docker:
           docker_layer_caching: true
       - run:
-        name: "Docker login"
-        command: |
-          docker login -u="$QUAY_ROBOT_USER" -p="$QUAY_ROBOT_PASSWORD" quay.io
+          name: "Docker login"
+          command: |
+            docker login -u="$QUAY_ROBOT_USER" -p="$QUAY_ROBOT_PASSWORD" quay.io
   #  machine:
   #    image: ubuntu-2204:2024.11.1
   #  #resource_class: small
