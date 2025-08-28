@@ -14,7 +14,6 @@ jobs:
           name: "Docker login"
           command: |
             docker login -u "$QUAY_ROBOT_USER" --password-stdin "$QUAY_ROBOT_PASSWORD" quay.io
-          #docker login -u="$QUAY_ROBOT_USER" -p="$QUAY_ROBOT_PASSWORD" quay.io
       - run:
           name: "Check for files"
           command: |
@@ -25,15 +24,6 @@ jobs:
             version=$(echo ${debfile} | sed 's/us8-//g' | sed 's/-Linux.deb//g')
             echo ${version}
             docker build -t us8executor:latest -t us8executor:${version} -f /tmp/workspace/Dockerfile.deb
-  #  machine:
-  #    image: ubuntu-2204:2024.11.1
-  #  #resource_class: small
-  #  steps:
-  #    - run: 
-  #        name: "Login"
-  #        command: echo "hi"
-  #        #command: |
-  #        #  docker login -u="$QUAY_ROBOT_USER" -p="$QUAY_ROBOT_PASSWORD" quay.io
   compile-job:
     # Specify the execution environment. You can specify an image from Docker Hub or use one of our convenience images from CircleCI's Developer Hub.    # See: https://circleci.com/docs/executor-intro/ & https://circleci.com/docs/configuration-reference/#executor-job
     docker:
@@ -90,7 +80,9 @@ jobs:
       - store_artifacts:
           path: /tmp/artifacts
       - persist_to_workspace:
-          root: /tmp/workspace
+          root: /tmp/
+          paths:
+            - workspace
       #- run:
       #    name: "Push latest container"
       #    command: |
