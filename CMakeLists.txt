@@ -78,7 +78,7 @@ set(WEBSERVER_LIBRARY_SRC
     services/webServer/listener.cpp
     services/webServer/messages/message.cpp
     services/webServer/messages/error.cpp)
-add_library(us8messaging ${MESSAGING_LIBRARY_SRC} ${WEBSERVER_LIBRARY_SRC})
+add_library(us8messaging ${MESSAGING_LIBRARY_SRC})# ${WEBSERVER_LIBRARY_SRC})
 target_sources(us8messaging
                PUBLIC
                FILE_SET HEADERS
@@ -212,12 +212,14 @@ if (${BUILD_FOR_DEBIAN})
                      COMMAND ${CMAKE_CPACK_COMMAND} -G DEB
                      WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} VERBATIM)
    add_dependencies(${PROJECT_NAME}-deb ${BINARIES})
-   find_program(buildah_EXECUTABLE buildah REQUIRED)
-   add_custom_target(buildah
-                     COMMENT "Preparing the container with buildah"
-                     COMMAND ${buildah_EXECUTABLE} bud -t us8executor:${PROJECT_VERSION} -t us8executor:latest -f ./Dockerfile.deb
-                     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} VERBATIM)
-   add_dependencies(buildah ${PROJECT_NAME}-deb)
+   find_program(buildah_EXECUTABLE buildah)
+   if (buildah_EXECUTABLE)
+      add_custom_target(buildah
+                        COMMENT "Preparing the container with buildah"
+                        COMMAND ${buildah_EXECUTABLE} bud -t us8executor:${PROJECT_VERSION} -t us8executor:latest -f ./Dockerfile.deb
+                        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} VERBATIM)
+      add_dependencies(buildah ${PROJECT_NAME}-deb)
+   endif()
 endif()
 
 

@@ -75,14 +75,15 @@ jobs:
              cpack -B /tmp/artifacts
              rm -rf /tmp/artifacts/_CPack_Packages
              make us8-deb
-             mv *-Linux.deb /tmp/workspace
-             mv Dockerfile.deb /tmp/workspace
+             mv *-Linux.deb /tmp/workspace/
+             mv Dockerfile.deb /tmp/workspace/
+             ls /tmp/workspace/
       - store_artifacts:
           path: /tmp/artifacts
       - persist_to_workspace:
           root: /tmp/
           paths:
-            - workspace
+            - workspace/*.deb
       #- run:
       #    name: "Push latest container"
       #    command: |
