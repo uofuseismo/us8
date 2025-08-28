@@ -13,7 +13,7 @@ jobs:
       - run:
           name: "Docker login"
           command: |
-            docker login -u "$QUAY_ROBOT_USER" --password-stdin "$QUAY_ROBOT_PASSWORD" quay.io
+            docker login -u="$QUAY_ROBOT_USER" -p="$QUAY_ROBOT_PASSWORD" quay.io
       - run:
           name: "Check for files"
           command: |
