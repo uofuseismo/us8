@@ -24,11 +24,22 @@ jobs:
             else
                echo "workspace is a file"
             fi
+            ls
+            if [ -d workspace ]; then
+               echo "still extra workspace directory"
+               cd workspace
+            fi
+            ls
             # Figure out version from us8-MAJOR.MINOR.PATCH-Linux.deb
             debfile=$(ls *Linux.deb)
             version=$(echo ${debfile} | sed 's/us8-//g' | sed 's/-Linux.deb//g')
             echo ${version}
-            docker build -t us8executor:latest -t us8executor:${version} -f /tmp/workspace/Dockerfile.deb
+            docker build -t us8executor:latest -t us8executor:${version} -f ./Dockerfile.deb .
+      - run:
+          name: "Upload to quay"
+          command: |
+            docker tag us8executor quay.io/uuss/us8executor
+            docker push quay.io/uuss/us8executor
   compile-job:
     # Specify the execution environment. You can specify an image from Docker Hub or use one of our convenience images from CircleCI's Developer Hub.    # See: https://circleci.com/docs/executor-intro/ & https://circleci.com/docs/configuration-reference/#executor-job
     docker:
@@ -86,9 +97,9 @@ jobs:
       - store_artifacts:
           path: /tmp/artifacts
       - persist_to_workspace:
-          root: /tmp/
+          root: /tmp/workspace
           paths:
-            - workspace/*.deb
+            - *.deb
       #- run:
       #    name: "Push latest container"
       #    command: |
