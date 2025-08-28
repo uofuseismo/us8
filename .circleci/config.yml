@@ -81,6 +81,7 @@ jobs:
            command: |
              cd build
              mkdir -p /tmp/artifacts
+             mkdir -p /tmp/workspace
              cpack -B /tmp/artifacts
              rm -rf /tmp/artifacts/_CPack_Packages
              make us8-deb
