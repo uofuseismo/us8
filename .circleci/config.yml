@@ -6,12 +6,25 @@ jobs:
     docker:
       - image: cimg/base:2022.09
     steps:
+      - attach_workspace:
+          at: /tmp/workspace
       - setup_remote_docker:
           docker_layer_caching: true
       - run:
           name: "Docker login"
           command: |
-            docker login -u="$QUAY_ROBOT_USER" -p="$QUAY_ROBOT_PASSWORD" quay.io
+            docker login -u "$QUAY_ROBOT_USER" --password-stdin "$QUAY_ROBOT_PASSWORD" quay.io
+          #docker login -u="$QUAY_ROBOT_USER" -p="$QUAY_ROBOT_PASSWORD" quay.io
+      - run:
+          name: "Check for files"
+          command:
+            ls /tmp/workspace
+            cd /tmp/workspace
+            # Figure out version from us8-MAJOR.MINOR.PATCH-Linux.deb
+            debfile=$(ls *Linux.deb)
+            version=$(echo ${debfile} | sed 's/us8-//g' | sed 's/-Linux.deb//g')
+            echo ${version}
+            docker build -t us8executor:latest -t us8executor:${version} -f /tmp/workspace/Dockerfile.deb
   #  machine:
   #    image: ubuntu-2204:2024.11.1
   #  #resource_class: small
@@ -45,7 +58,7 @@ jobs:
             fi
             mkdir build
             cd build
-            cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX=/usr/local/us8
+            cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX=/usr/local/us8 -DBUILD_FOR_DEBIAN=ON
       - run:
           name: "Build the code"
           command: |
@@ -70,8 +83,13 @@ jobs:
              mkdir -p /tmp/artifacts
              cpack -B /tmp/artifacts
              rm -rf /tmp/artifacts/_CPack_Packages
+             make us8-deb
+             mv *-Linux.deb /tmp/workspace
+             mv Dockerfile.deb /tmp/workspace
       - store_artifacts:
           path: /tmp/artifacts
+      - persist_to_workspace:
+          root: /tmp/workspace
       #- run:
       #    name: "Push latest container"
       #    command: |
