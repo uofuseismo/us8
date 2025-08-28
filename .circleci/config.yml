@@ -19,6 +19,11 @@ jobs:
           command: |
             ls /tmp/workspace
             cd /tmp/workspace
+            if [ -d /tmp/workspace ]; then
+               echo "workspace is a directory"
+            else
+               echo "workspace is a file"
+            fi
             # Figure out version from us8-MAJOR.MINOR.PATCH-Linux.deb
             debfile=$(ls *Linux.deb)
             version=$(echo ${debfile} | sed 's/us8-//g' | sed 's/-Linux.deb//g')
