@@ -17,7 +17,7 @@ jobs:
           #docker login -u="$QUAY_ROBOT_USER" -p="$QUAY_ROBOT_PASSWORD" quay.io
       - run:
           name: "Check for files"
-          command:
+          command: |
             ls /tmp/workspace
             cd /tmp/workspace
             # Figure out version from us8-MAJOR.MINOR.PATCH-Linux.deb
@@ -122,8 +122,9 @@ jobs:
 workflows:
   compile-workflow: 
     jobs:
-      - deploy-job
       - compile-job
-
+      - deploy-job
+          requires:
+            - compile-job
 
 
