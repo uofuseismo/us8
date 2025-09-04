@@ -15,6 +15,8 @@
 #include <opentelemetry/metrics/meter_provider.h>
 #include <opentelemetry/metrics/provider.h>
 #include <opentelemetry/exporters/ostream/metric_exporter_factory.h>
+#include <opentelemetry/exporters/prometheus/exporter_factory.h>
+#include <opentelemetry/exporters/prometheus/exporter_options.h>
 #include <opentelemetry/sdk/metrics/meter_context.h>
 #include <opentelemetry/sdk/metrics/meter_context_factory.h>
 #include <opentelemetry/sdk/metrics/meter_provider.h>
@@ -46,6 +48,7 @@ std::atomic<bool> mInterrupted{false};
 struct ProgramOptions
 {
     US8::Broadcasts::DataPacket::SEEDLink::ClientOptions seedLinkClientOptions;
+    std::string prometheusURL{"localhost:9090"};
     std::string applicationName{APPLICATION_NAME};
     std::string openTelemetrySchema{OTEL_SCHEMA};
     std::string openTelemetryVersion{OTEL_VERSION};
@@ -65,6 +68,37 @@ struct ProgramOptions
 ::ProgramOptions parseIniFile(const std::filesystem::path &iniFile);
 std::pair<std::string, bool> parseCommandLineOptions(int argc, char *argv[]);
 
+namespace
+{
+void initializeMetrics(const ProgramOptions &options)
+{
+    opentelemetry::exporter::metrics::PrometheusExporterOptions
+        prometheusOptions;
+    prometheusOptions.url = options.prometheusURL;
+    auto prometheusExporter
+        = opentelemetry::exporter::metrics::PrometheusExporterFactory::Create(
+              prometheusOptions);
+
+    // Initialize and set the global MeterProvider
+    auto providerInstance 
+        = opentelemetry::sdk::metrics::MeterProviderFactory::Create();
+    auto *meterProvider
+        = static_cast<opentelemetry::sdk::metrics::MeterProvider *>
+          (providerInstance.get());
+    meterProvider->AddMetricReader(std::move(prometheusExporter));
+
+    std::shared_ptr<opentelemetry::metrics::MeterProvider>
+        provider(std::move(providerInstance));
+    opentelemetry::sdk::metrics::Provider::SetMeterProvider(provider);
+}
+
+void cleanupMetrics()
+{
+     std::shared_ptr<opentelemetry::metrics::MeterProvider> none;
+     opentelemetry::sdk::metrics::Provider::SetMeterProvider(none);
+}
+}
+
 class Process
 {
 public:
@@ -73,24 +107,29 @@ public:
         mOptions(options)
     {
         // Create the exporter
-        auto exporter 
-            = opentelemetry::exporter::metrics::OStreamMetricExporterFactory::Create();
+        //auto exporter 
+        //    = opentelemetry::exporter::metrics::OStreamMetricExporterFactory::Create();
+/*
+        opentelemetry::exporter::metrics::PrometheusExporterOptions
+            prometheusOptions;
+        prometheusOptions.url = options.prometheusURL;
+        auto exporter
+              = opentelemetry::exporter::metrics::PrometheusExporterFactory::Create(prometheusOptions);
 
         // Create the provider and reader
-        opentelemetry::sdk::metrics::PeriodicExportingMetricReaderOptions meterOptions;
+//        opentelemetry::sdk::metrics::PeriodicExportingMetricReaderOptions meterOptions;
 //        meterOptions.export_interval_millis = options.openTelemetryExportInterval;
-        meterOptions.export_timeout_millis = options.openTelemetryTimeOut;
-        auto reader
-            = opentelemetry::sdk::metrics::PeriodicExportingMetricReaderFactory
-                ::Create(std::move(exporter), meterOptions); 
+//        meterOptions.export_timeout_millis = options.openTelemetryTimeOut;
+//        auto reader
+//            = opentelemetry::sdk::metrics::PeriodicExportingMetricReaderFactory
+//                ::Create(std::move(exporter), meterOptions); 
 
         auto context
             = opentelemetry::sdk::metrics::MeterContextFactory::Create();
-        context->AddMetricReader(std::move(reader));
+//        context->AddMetricReader(std::move(reader));
         auto provider
             = opentelemetry::sdk::metrics::MeterProviderFactory::Create(std::move(context));
 
-/*
         auto gaugeName = options.applicationName
                        + "-propagated_packets_gauge";
         auto gaugeUnit = "packets/minute";
@@ -113,11 +152,10 @@ public:
         provider->AddView(std::move(instrumentSelector),
                           std::move(meterSelector),
                           std::move(sumView));
-*/
 
         std::shared_ptr<opentelemetry::metrics::MeterProvider> apiProvider(std::move(provider));
         opentelemetry::sdk::metrics::Provider::SetMeterProvider(apiProvider);
-                             
+*/                             
 
         mLogPublishingPerformanceInterval
             = options.logPublishingPerformanceInterval;
@@ -287,7 +325,6 @@ public:
             }
             if (nowSeconds >= nextSendMetricTime)
             {
-spdlog::info("Yes");
                 try
                 {
                     publishedPacketsGauge->Record(nSentPacketsInLastMinute, context);
@@ -444,9 +481,12 @@ int main(int argc, char *argv[])
     if (programOptions.verbosity == 3){spdlog::set_level(spdlog::level::info);}
     if (programOptions.verbosity >= 4){spdlog::set_level(spdlog::level::debug);}
     
+    spdlog::info("Starting metrics");
+    initializeMetrics(programOptions);
+
     std::unique_ptr<::Process> process;
     try 
-    {   
+    {
         process = std::make_unique<::Process> (programOptions);
     }   
     catch (const std::exception &e) 
@@ -464,10 +504,12 @@ int main(int argc, char *argv[])
     {   
         spdlog::error("Failed to start proxy process because "
                     + std::string {e.what()});
+        cleanupMetrics();
         return EXIT_FAILURE;
     }   
 
     process->handleMainThread();
+    cleanupMetrics();
 
     return EXIT_SUCCESS;
 }

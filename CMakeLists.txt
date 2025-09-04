@@ -14,6 +14,13 @@ FetchContent_Declare(
   EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(readerwriterqueue)
+FetchContent_Declare(
+  concurrentqueue
+  GIT_REPOSITORY    https://github.com/cameron314/concurrentqueue
+  GIT_TAG           c68072129c8a5b4025122ca5a0c82ab14b30cb03
+  EXCLUDE_FROM_ALL
+)
+FetchContent_MakeAvailable(concurrentqueue)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
@@ -128,7 +135,7 @@ target_include_directories(dataPacketSanitizer
                            PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
 target_link_libraries(dataPacketSanitizer
                       PRIVATE us8messaging us8client spdlog::spdlog_header_only Boost::program_options
-                              opentelemetry-cpp::metrics opentelemetry-cpp::ostream_metrics_exporter
+                              opentelemetry-cpp::metrics opentelemetry-cpp::prometheus_exporter
                               readerwriterqueue Threads::Threads)
 list(APPEND BINARIES dataPacketSanitizer)
 
@@ -152,21 +159,22 @@ if (${SEEDLink_FOUND} AND ${MiniSEED_FOUND})
    target_link_libraries(seedLinkDataPacketBroadcastPublisher
                          PRIVATE us8client us8messaging spdlog::spdlog_header_only Boost::program_options
                                  SEEDLink::SEEDLink MiniSEED::MiniSEED
-                                 opentelemetry-cpp::metrics opentelemetry-cpp::ostream_metrics_exporter
+                                 opentelemetry-cpp::metrics opentelemetry-cpp::prometheus_exporter
                                  readerwriterqueue Threads::Threads)# -static-libstdc++)
    list(APPEND BINARIES seedLinkDataPacketBroadcastPublisher)
 endif()
 
-add_executable(externalAPI
-               webServer/dataBroadcast.cpp
-               webServer/webSocket/listener.cpp)
-target_include_directories(externalAPI
-                           PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
-target_link_libraries(externalAPI
-                      PRIVATE us8client us8messaging spdlog::spdlog_header_only Boost::program_options
-                              opentelemetry-cpp::metrics opentelemetry-cpp::ostream_metrics_exporter
-                              oatpp::oatpp oatpp::oatpp-websocket
-                              Threads::Threads)
+#add_executable(externalAPI
+#               webServer/dataBroadcast.cpp
+#               webServer/webSocket/listener.cpp
+#               webServer/observerPattern/subject.cpp)
+#target_include_directories(externalAPI
+#                           PRIVATE $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
+#target_link_libraries(externalAPI
+#                      PRIVATE us8client us8messaging spdlog::spdlog_header_only Boost::program_options
+#                              opentelemetry-cpp::metrics opentelemetry-cpp::prometheus_exporter
+#                              oatpp::oatpp oatpp::oatpp-websocket concurrentqueue
+#                              Threads::Threads)
 
 ##########################################################################################
 #                                      Installation                                      #
